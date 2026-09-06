@@ -1,0 +1,6 @@
+{
+  "name": "SEVEN",
+  "description": "Personal progression system & save file for real life: habits, discipline, fitness, quests, and seasonal arcs.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
