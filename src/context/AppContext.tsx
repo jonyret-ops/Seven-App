@@ -201,11 +201,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const storedPRs = await repository.getPersonalRecords();
 
       // Ensure arc has valid dates if newly initialized
-      if (!storedArc.startDate) {
+      if (!storedArc.startDate || !storedArc.endDate) {
+        const start = storedArc.startDate || activeTodayDate;
         storedArc = {
           ...storedArc,
-          startDate: activeTodayDate,
-          endDate: addDays(activeTodayDate, 90),
+          startDate: start,
+          endDate: storedArc.endDate || addDays(start, 90),
         };
         await repository.saveCurrentArc(storedArc);
       }

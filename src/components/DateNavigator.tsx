@@ -6,13 +6,15 @@ import { addDays, getDaysDifference, formatOrdinalDate } from '../lib/calculatio
 interface DateNavigatorProps {
   date?: string;
   onDateChange?: (newDate: string) => void;
-  maxFutureDays?: number;
+  minDate?: string;
+  maxDate?: string;
 }
 
 export const DateNavigator: React.FC<DateNavigatorProps> = ({
   date,
   onDateChange,
-  maxFutureDays = 30,
+  minDate,
+  maxDate,
 }) => {
   const {
     selectedDate: appSelectedDate,
@@ -30,12 +32,19 @@ export const DateNavigator: React.FC<DateNavigatorProps> = ({
   const isTomorrow = activeDate === addDays(activeTodayDate, 1);
   const isFuture = isDateFuture(activeDate);
 
-  // Allow forward navigation into future (up to maxFutureDays)
-  const maxFutureDate = addDays(activeTodayDate, maxFutureDays);
-  const canGoForward = activeDate < maxFutureDate;
+  // Dynamic Arc boundaries determine navigation limits:
+  // Earliest Arc date = currentArc.startDate
+  // Latest Arc date = currentArc.endDate
+  const minBackwardDate = minDate || currentArc?.startDate;
+  const maxForwardDate = maxDate || currentArc?.endDate;
+
+  const canGoBack = minBackwardDate ? activeDate > minBackwardDate : true;
+  const canGoForward = maxForwardDate ? activeDate < maxForwardDate : true;
 
   const handlePrevDay = () => {
-    setActiveDate(addDays(activeDate, -1));
+    if (canGoBack) {
+      setActiveDate(addDays(activeDate, -1));
+    }
   };
 
   const handleNextDay = () => {
@@ -61,8 +70,13 @@ export const DateNavigator: React.FC<DateNavigatorProps> = ({
       <button
         type="button"
         onClick={handlePrevDay}
+        disabled={!canGoBack}
         aria-label="Previous day"
-        className="w-10 h-10 rounded-2xl flex items-center justify-center text-[#12324A] hover:bg-[#F2F1ED] transition-colors cursor-pointer"
+        className={`w-10 h-10 rounded-2xl flex items-center justify-center transition-colors ${
+          canGoBack
+            ? 'text-[#12324A] hover:bg-[#F2F1ED] cursor-pointer'
+            : 'text-[#EEEDE9] cursor-not-allowed opacity-40'
+        }`}
       >
         <ChevronLeft className="w-5 h-5 stroke-[1.75]" />
       </button>
