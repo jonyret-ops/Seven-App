@@ -2,6 +2,19 @@ export type QuestType = 'boolean' | 'numeric' | 'focus';
 
 export type CharacterStatCategory = 'faith' | 'fitness' | 'discipline' | 'nutrition' | 'focus' | 'character';
 
+export type QuestTimePeriod = 'morning' | 'afternoon' | 'evening' | 'all_day';
+
+export type QuestCategory = 
+  | 'nutrition' 
+  | 'faith' 
+  | 'fitness' 
+  | 'discipline' 
+  | 'focus' 
+  | 'routine' 
+  | 'hygiene' 
+  | 'recovery' 
+  | 'mindset';
+
 export interface QuestDefinition {
   id: string;
   order: number;
@@ -10,7 +23,8 @@ export interface QuestDefinition {
   baseXp: number; // For Energy Drink, 0. For boolean, points.
   description?: string;
   iconName?: string;
-  category: 'routine' | 'nutrition' | 'fitness' | 'mindset' | 'hygiene' | 'recovery' | 'faith';
+  category: QuestCategory;
+  timePeriod?: QuestTimePeriod;
   allowNA?: boolean; // Can be marked Not Applicable (e.g. Go to School/Work on weekends)
   statTarget?: CharacterStatCategory;
   isOptional?: boolean;
@@ -46,12 +60,14 @@ export type DailyRank =
   | 'PERFECT DAY 💎';
 
 export type StatusTitle =
-  | 'STARTING OUT'
-  | 'BUILDING MOMENTUM'
-  | 'CONSISTENT'
-  | 'DISCIPLINED'
+  | 'FALLING OFF'
+  | 'LACKING'
+  | 'GETTING THERE'
+  | 'SOLID'
+  | 'DIALED IN'
   | 'LOCKED IN'
-  | 'UNSTOPPABLE';
+  | 'UNSTOPPABLE'
+  | 'BUILDING STATUS';
 
 export interface DailyLog {
   date: string; // YYYY-MM-DD
@@ -169,8 +185,23 @@ export interface ArcRecap {
   finalGrade: 'S' | 'A' | 'B' | 'C' | 'D';
 }
 
+export type DayOfWeek = 
+  | 'monday' 
+  | 'tuesday' 
+  | 'wednesday' 
+  | 'thursday' 
+  | 'friday' 
+  | 'saturday' 
+  | 'sunday';
+
+export type AvatarId = 'disciplined' | 'athlete' | 'stoic';
+
 export interface UserProfile {
   name: string;
+  avatarId: AvatarId; // 'disciplined' | 'athlete' | 'stoic'
+  weeklySchedule: Record<DayOfWeek, 'active' | 'rest'>;
+  restDayOverrides: string[]; // Specific calendar dates (YYYY-MM-DD) marked as Rest Days
+  trainAnywayDates: string[]; // Specific calendar dates (YYYY-MM-DD) where user chose "Train Anyway" on Rest Day
   currentArcId: string;
   lifetimeBaselineDate: string; // e.g. '2026-09-06' or ''
   lifetimeBaselineWeight: number; // 0 if not set, or initial weigh-in
@@ -237,4 +268,135 @@ export interface WeeklyReport {
     avgSleepDiff: number;
   };
 }
+
+// Body Measurements System (Part XXXVI)
+export type BodyMeasurementType = 
+  | 'waist'
+  | 'chest'
+  | 'left_arm'
+  | 'right_arm'
+  | 'hips'
+  | 'left_thigh'
+  | 'right_thigh'
+  | 'neck';
+
+export interface BodyMeasurementEntry {
+  id: string;
+  date: string; // YYYY-MM-DD
+  measurementType: BodyMeasurementType;
+  value: number;
+  unit: 'in' | 'cm';
+  note?: string;
+  createdAt: string;
+}
+
+export interface BodyMeasurementSummary {
+  type: BodyMeasurementType;
+  label: string;
+  latestValue: number | null;
+  baselineValue: number | null;
+  change: number | null;
+  unit: 'in' | 'cm';
+  latestDate: string;
+}
+
+// Nutrition & Macro System (Part XLI - XLV)
+export type MealType = 'breakfast' | 'lunch' | 'dinner' | 'snack';
+
+export interface MealLog {
+  id: string;
+  date: string; // YYYY-MM-DD
+  name: string;
+  mealType: MealType;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  createdAt: string;
+}
+
+export interface NutritionSettings {
+  id: string; // 'current'
+  caloriesTarget?: number;
+  proteinTarget?: number;
+  carbsTarget?: number;
+  fatTarget?: number;
+  waterTargetOz?: number;
+}
+
+export interface DailyMacroSummary {
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  caloriesTarget?: number;
+  proteinTarget?: number;
+  carbsTarget?: number;
+  fatTarget?: number;
+  proteinPercent: number;
+  carbsPercent: number;
+  fatPercent: number;
+}
+
+// Weekly Goal System (Part XXV - XXIX)
+export type WeeklyGoalType = 
+  | 'gym_week'
+  | '70k_week'
+  | 'diamond_week'
+  | 'seven_strong'
+  | 'consistency'
+  | 'first_things_first'
+  | 'bookends'
+  | 'locked_in_week'
+  | 'focus_week'
+  | 'side_hustle'
+  | 'protein_week';
+
+export interface WeeklyGoalDefinition {
+  id: WeeklyGoalType;
+  title: string;
+  subtitle: string;
+  description: string;
+  xpReward: number;
+  targetValue: number;
+  unit: string;
+  icon: string;
+  requiresConfig?: 'protein' | 'gym' | 'prayer';
+}
+
+export interface WeeklyGoalInstance {
+  id: string;
+  weekNumber: number;
+  startDate: string; // YYYY-MM-DD
+  endDate: string; // YYYY-MM-DD
+  goalType: WeeklyGoalType;
+  currentProgress: number;
+  targetValue: number;
+  isCompleted: boolean;
+  isRewarded: boolean;
+  completedAt?: string;
+}
+
+// Today's Focus Intentions (Part XVI & visual reference)
+export interface DailyFocusIntention {
+  id: string;
+  date: string;
+  text: string;
+  isCompleted: boolean;
+  order: number;
+}
+
+// Multi-category Arc Goal (Part XXXI - XXXII)
+export interface ArcGoal {
+  id: string;
+  arcId: string;
+  category: 'faith' | 'fitness' | 'discipline' | 'nutrition' | 'focus' | 'character' | 'body' | 'personal';
+  title: string;
+  targetType: 'value' | 'count' | 'streak' | 'measurement' | 'manual';
+  currentValue: number;
+  targetValue: number;
+  unit?: string;
+  isCompleted: boolean;
+}
+
 

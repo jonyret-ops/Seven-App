@@ -1,597 +1,378 @@
 import React, { useState, useMemo } from 'react';
 import {
-  Scale,
+  ClipboardCheck,
   Plus,
+  TrendingDown,
+  TrendingUp,
+  BarChart2,
+  Calendar,
+  ChevronRight,
   Flame,
   Footprints,
-  Moon,
-  ChevronRight,
+  Dumbbell,
+  Scale
 } from 'lucide-react';
 import {
   ResponsiveContainer,
-  BarChart,
-  Bar,
   LineChart,
   Line,
   XAxis,
   YAxis,
   Tooltip,
   CartesianGrid,
-  ReferenceLine
+  BarChart,
+  Bar
 } from 'recharts';
 import { useApp } from '../../context/AppContext';
-import { addDays, calculateWeeklyReport, parseDate } from '../../lib/calculations';
-import { DailyLog } from '../../types';
+import { BodyMeasurementsCard } from '../BodyMeasurementsCard';
 
 interface ProgressScreenProps {
   onOpenWeightModal: () => void;
   onSelectHistoricalDate: (date: string) => void;
 }
 
-type FilterRange = '7d' | '30d' | 'all';
-type ChartTab = 'xp' | 'weight' | 'steps' | 'sleep';
+type TabCategory = 'weight' | 'workouts' | 'steps' | 'habits';
+type TimeRange = '1W' | '1M' | '3M' | 'All';
 
 export const ProgressScreen: React.FC<ProgressScreenProps> = ({
   onOpenWeightModal,
   onSelectHistoricalDate,
 }) => {
   const {
-    allLogs,
     weightEntries,
-    streakStats,
-    weightStats,
+    allLogs,
     currentArc,
-    activeTodayDate,
-    deleteWeightEntry,
+    weightStats,
     profile,
   } = useApp();
 
-  const [rangeFilter, setRangeFilter] = useState<FilterRange>('7d');
-  const [activeChartTab, setActiveChartTab] = useState<ChartTab>('xp');
+  const [activeCategory, setActiveCategory] = useState<TabCategory>('weight');
+  const [timeRange, setTimeRange] = useState<TimeRange>('1M');
 
-  // Compute weekly report for the current week ending today
-  const weeklyReport = useMemo(() => {
-    return calculateWeeklyReport(allLogs, weightEntries, activeTodayDate);
-  }, [allLogs, weightEntries, activeTodayDate]);
+  const currentWeight = weightStats?.currentWeight && weightStats.currentWeight > 0 ? weightStats.currentWeight : null;
+  const startingWeight = weightStats?.arcStartingWeight && weightStats.arcStartingWeight > 0 ? weightStats.arcStartingWeight : null;
+  const goalWeight = currentArc?.goalWeight && currentArc.goalWeight > 0 ? currentArc.goalWeight : null;
+  const weightChange = currentWeight !== null && startingWeight !== null ? Number((currentWeight - startingWeight).toFixed(1)) : null;
 
-  // Compute logs for chosen date range
-  const filteredLogs = useMemo(() => {
-    const daysCount = rangeFilter === '7d' ? 7 : rangeFilter === '30d' ? 30 : 90;
-    const result: DailyLog[] = [];
-
-    for (let i = daysCount - 1; i >= 0; i--) {
-      const dStr = addDays(activeTodayDate, -i);
-      const found = allLogs.find((l) => l.date === dStr);
-      if (found) {
-        result.push(found);
-      } else {
-        result.push({
-          date: dStr,
-          completedQuestIds: [],
-          naQuestIds: [],
-          completedSideQuestIds: [],
-          steps: 0,
-          sleepHours: 0,
-          focusRating: 0,
-          energyDrinkConsumed: false,
-          corePointsEarned: 0,
-          corePointsAvailable: 15,
-          corePerformancePercent: 0,
-          baseXp: 0,
-          bonusXp: 0,
-          totalXp: 0,
-          dailyRank: 'ROUGH DAY',
-          isConqueredDay: false,
-          isPerfectDay: false,
-          createdAt: '',
-          updatedAt: '',
-        });
-      }
-    }
-    return result;
-  }, [allLogs, rangeFilter, activeTodayDate]);
-
-  // Aggregated analytical statistics for the selected range
-  const stats = useMemo(() => {
-    const totalXp = filteredLogs.reduce((sum, l) => sum + l.totalXp, 0);
-    const avgXp = Math.round(totalXp / Math.max(1, filteredLogs.length));
-    const successfulDays = filteredLogs.filter((l) => l.totalXp >= 85).length;
-    const totalSteps = filteredLogs.reduce((sum, l) => sum + (l.steps || 0), 0);
-    const avgSteps = Math.round(totalSteps / Math.max(1, filteredLogs.length));
-    const totalSleep = filteredLogs.reduce((sum, l) => sum + (l.sleepHours || 0), 0);
-    const avgSleep = Number((totalSleep / Math.max(1, filteredLogs.length)).toFixed(1));
-    const ratedFocusLogs = filteredLogs.filter((l) => l.focusRating > 0);
-    const avgFocus = ratedFocusLogs.length > 0
-      ? (ratedFocusLogs.reduce((sum, l) => sum + l.focusRating, 0) / ratedFocusLogs.length).toFixed(1)
-      : '—';
-    const gymSessions = filteredLogs.filter((l) => l.completedQuestIds.includes('hit_the_gym')).length;
-    const sideQuestsCompleted = filteredLogs.reduce((sum, l) => sum + l.completedSideQuestIds.length, 0);
-
-    return {
-      totalXp,
-      avgXp,
-      successfulDays,
-      totalSteps,
-      avgSteps,
-      avgSleep,
-      avgFocus,
-      gymSessions,
-      sideQuestsCompleted,
-    };
-  }, [filteredLogs]);
-
-  // Chart data formatting
+  // Chart data from real weight entries only
   const chartData = useMemo(() => {
-    return filteredLogs.map((log) => {
-      const d = parseDate(log.date);
-      const label = `${d.getMonth() + 1}/${d.getDate()}`;
+    if (!weightEntries || weightEntries.length === 0) return [];
+    return [...weightEntries]
+      .sort((a, b) => a.date.localeCompare(b.date))
+      .map((e) => {
+        const parts = e.date.split('-');
+        const monthStr = parts.length === 3 ? ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][parseInt(parts[1]) - 1] : '';
+        return {
+          date: `${monthStr} ${parseInt(parts[2]) || ''}`,
+          weight: e.weight,
+        };
+      });
+  }, [weightEntries]);
 
+  // Steps chart data from real daily logs
+  const stepsData = useMemo(() => {
+    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    if (!allLogs || allLogs.length === 0) return [];
+    return allLogs.slice(-7).map((l) => {
+      const d = new Date(l.date + 'T12:00:00');
       return {
-        date: log.date,
-        name: label,
-        totalXp: log.totalXp,
-        baseXp: log.baseXp,
-        bonusXp: log.bonusXp,
-        steps: log.steps || 0,
-        sleep: log.sleepHours || 0,
+        day: days[d.getDay()],
+        steps: l.steps || 0,
       };
     });
-  }, [filteredLogs]);
+  }, [allLogs]);
 
-  const weightChartData = useMemo(() => {
-    return weightEntries.map((w) => {
-      const d = parseDate(w.date);
-      return {
-        date: w.date,
-        name: `${d.getMonth() + 1}/${d.getDate()}`,
-        weight: w.weight,
-        goal: currentArc.goalWeight,
-      };
-    });
-  }, [weightEntries, currentArc.goalWeight]);
+  const dailyAverageSteps = useMemo(() => {
+    const logsWithSteps = allLogs.filter((l) => (l.steps || 0) > 0);
+    if (logsWithSteps.length === 0) return null;
+    const sum = logsWithSteps.reduce((acc, l) => acc + (l.steps || 0), 0);
+    return Math.round(sum / logsWithSteps.length);
+  }, [allLogs]);
 
-  const gradeColors: Record<string, { bg: string; text: string; border: string }> = {
-    S: { bg: 'bg-amber-500/20', text: 'text-amber-400', border: 'border-amber-500/30' },
-    A: { bg: 'bg-emerald-500/20', text: 'text-emerald-400', border: 'border-emerald-500/30' },
-    B: { bg: 'bg-cyan-500/20', text: 'text-cyan-400', border: 'border-cyan-500/30' },
-    C: { bg: 'bg-zinc-800', text: 'text-zinc-300', border: 'border-zinc-700' },
-    D: { bg: 'bg-rose-500/20', text: 'text-rose-400', border: 'border-rose-500/30' },
-  };
+  const gymSessionCount = useMemo(() => {
+    return allLogs.filter((l) => l.completedQuestIds?.includes('hit_the_gym')).length;
+  }, [allLogs]);
+
+  const avgRoutinePerf = useMemo(() => {
+    if (!allLogs || allLogs.length === 0) return null;
+    const sum = allLogs.reduce((acc, l) => acc + (l.corePerformancePercent || 0), 0);
+    return Math.round(sum / allLogs.length);
+  }, [allLogs]);
 
   return (
-    <div className="space-y-4 pb-28 animate-in fade-in duration-300">
+    <div className="space-y-4 select-none">
       {/* Top Header */}
-      <header className="flex items-center justify-between pt-1">
+      <header className="flex items-center justify-between pt-1 pb-1">
         <div>
-          <span className="text-[10px] font-black tracking-widest uppercase text-emerald-400 block">
-            ANALYTICS & METRICS
-          </span>
-          <h1 className="text-2xl font-black text-white tracking-tight">
-            PROGRESS & PERFORMANCE
+          <h1 className="text-2xl font-black text-[#0D1B2A] tracking-tight">
+            Progress
           </h1>
+          <p className="text-xs font-semibold text-[#68727D] mt-0.5">
+            Discipline compounds over time
+          </p>
         </div>
 
-        {/* Range Selector Pills */}
-        <div className="flex bg-zinc-900 border border-white/[0.08] p-1 rounded-xl">
-          {(['7d', '30d', 'all'] as FilterRange[]).map((range) => (
-            <button
-              key={range}
-              type="button"
-              onClick={() => setRangeFilter(range)}
-              className={`px-2 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                rangeFilter === range
-                  ? 'bg-emerald-500 text-black shadow-xs font-black'
-                  : 'text-zinc-400 hover:text-white'
-              }`}
-            >
-              {range === '7d' ? '7D' : range === '30d' ? '30D' : 'All'}
-            </button>
-          ))}
-        </div>
+        <button
+          type="button"
+          onClick={onOpenWeightModal}
+          className="w-10 h-10 rounded-full flex items-center justify-center text-[#12324A] bg-white border border-[#EEEDE9] shadow-xs hover:bg-[#F2F1ED] transition-colors cursor-pointer"
+          title="Log Weight"
+        >
+          <Scale className="w-5 h-5 stroke-[1.9]" />
+        </button>
       </header>
 
-      {/* SECTION: WEEKLY REPORT CARD */}
-      <div className="bg-[#14171D] rounded-3xl p-4 border border-white/[0.08] shadow-sm relative overflow-hidden">
-        <div className="flex items-start justify-between mb-3">
-          <div>
-            <span className="text-[10px] font-black tracking-wider uppercase text-zinc-400 block">
-              Week {weeklyReport.weekNumber} Report
-            </span>
-            <h3 className="text-lg font-black text-white tracking-tight mt-0.5">
-              CURRENT CYCLE PERFORMANCE
-            </h3>
-            <p className="text-[11px] text-zinc-400">
-              {weeklyReport.startDate} to {weeklyReport.endDate}
-            </p>
-          </div>
-
-          <div className="flex flex-col items-end">
-            <div
-              className={`w-11 h-11 rounded-2xl flex items-center justify-center font-black text-xl border ${
-                gradeColors[weeklyReport.grade]?.bg || 'bg-zinc-800'
-              } ${gradeColors[weeklyReport.grade]?.text || 'text-white'} ${
-                gradeColors[weeklyReport.grade]?.border || 'border-zinc-700'
+      {/* Segmented Category Pills */}
+      <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
+        {[
+          { id: 'weight', label: 'Weight' },
+          { id: 'workouts', label: 'Workouts' },
+          { id: 'steps', label: 'Steps' },
+          { id: 'habits', label: 'Habits' },
+        ].map((tab) => {
+          const isActive = activeCategory === tab.id;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setActiveCategory(tab.id as any)}
+              className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer whitespace-nowrap min-h-[36px] ${
+                isActive
+                  ? 'bg-[#12324A] text-white shadow-xs'
+                  : 'bg-white text-[#68727D] border border-[#EEEDE9] hover:bg-[#F2F1ED]'
               }`}
             >
-              {weeklyReport.grade}
-            </div>
-            <span className="text-[9px] font-black tracking-wider uppercase text-emerald-400 mt-1">
-              {weeklyReport.gradeTitle}
-            </span>
-          </div>
-        </div>
-
-        {/* Weekly Stats Grid */}
-        <div className="grid grid-cols-3 gap-2 text-center my-3">
-          <div className="bg-zinc-900/90 p-2.5 rounded-xl border border-white/[0.05]">
-            <span className="text-[9px] font-bold text-zinc-400 uppercase block">Avg XP</span>
-            <span className="text-base font-black text-white">{weeklyReport.avgXp}</span>
-          </div>
-          <div className="bg-zinc-900/90 p-2.5 rounded-xl border border-white/[0.05]">
-            <span className="text-[9px] font-bold text-zinc-400 uppercase block">Conquered</span>
-            <span className="text-base font-black text-emerald-400">{weeklyReport.successfulDays}/7</span>
-          </div>
-          <div className="bg-zinc-900/90 p-2.5 rounded-xl border border-white/[0.05]">
-            <span className="text-[9px] font-bold text-zinc-400 uppercase block">Gym</span>
-            <span className="text-base font-black text-white">{weeklyReport.gymSessions}</span>
-          </div>
-        </div>
-
-        {/* Comparison vs Last Week */}
-        {weeklyReport.comparisonVsLastWeek ? (
-          <div className="mt-2 pt-2 border-t border-zinc-800 text-xs font-semibold text-zinc-300 flex flex-wrap items-center justify-between gap-2">
-            <span className="text-zinc-500 text-[10px] font-black uppercase">VS LAST WEEK:</span>
-            <span className={weeklyReport.comparisonVsLastWeek.xpDiffPercent >= 0 ? 'text-emerald-400 font-bold' : 'text-zinc-400'}>
-              {weeklyReport.comparisonVsLastWeek.xpDiffPercent >= 0 ? '+' : ''}{weeklyReport.comparisonVsLastWeek.xpDiffPercent}% XP
-            </span>
-            <span className="text-zinc-300">
-              {weeklyReport.comparisonVsLastWeek.successfulDaysDiff >= 0 ? '+' : ''}{weeklyReport.comparisonVsLastWeek.successfulDaysDiff} conquered days
-            </span>
-          </div>
-        ) : (
-          <div className="mt-2 pt-2 border-t border-zinc-800 text-[11px] text-zinc-500 text-center">
-            Complete your first full week to see week-over-week comparisons!
-          </div>
-        )}
+              {tab.label}
+            </button>
+          );
+        })}
       </div>
 
-      {/* SECTION: WEIGHT TRACKING SNAPSHOT */}
-      <div className="bg-[#14171D] rounded-3xl p-4 border border-white/[0.08] shadow-sm space-y-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-emerald-500/15 text-emerald-400 border border-emerald-500/25 flex items-center justify-center">
-              <Scale className="w-4 h-4" />
-            </div>
-            <div>
-              <h3 className="text-base font-black text-white tracking-tight">
-                WEIGHT PROGRESS
-              </h3>
-              <span className="text-[11px] text-zinc-400">Current Arc: {currentArc.name}</span>
-            </div>
-          </div>
-
-          <button
-            type="button"
-            onClick={onOpenWeightModal}
-            className="h-8 px-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-black flex items-center gap-1 shadow-xs transition-all cursor-pointer"
-          >
-            <Plus className="w-3.5 h-3.5 stroke-[3]" />
-            <span>Add Weight</span>
-          </button>
-        </div>
-
-        {/* 5-part progress display */}
-        {weightStats.hasBaseline && weightEntries.length > 0 ? (
-          <>
-            <div className="bg-zinc-900/90 p-3 rounded-2xl border border-white/[0.05] flex items-center justify-between text-center gap-1">
+      {activeCategory === 'weight' && (
+        <div className="space-y-4">
+          {/* Main Current Weight Card */}
+          <div className="bg-white rounded-3xl p-5 border border-[#EEEDE9] shadow-xs space-y-4">
+            {/* Weight Value & Delta */}
+            <div className="flex items-start justify-between">
               <div>
-                <span className="text-[9px] font-bold text-zinc-500 uppercase block">Start</span>
-                <span className="text-xs font-black text-zinc-300">
-                  {weightStats.arcStartingWeight} {weightStats.unit}
+                <span className="text-[10px] font-bold text-[#68727D] uppercase tracking-wider block">
+                  Current Weight
                 </span>
+                <div className="flex items-baseline gap-1.5 mt-0.5">
+                  <span className="text-3xl font-black text-[#0D1B2A] tracking-tight">
+                    {currentWeight !== null ? currentWeight : '—'}
+                  </span>
+                  {currentWeight !== null && (
+                    <span className="text-xs font-bold text-[#68727D]">
+                      {weightStats?.unit || 'lbs'}
+                    </span>
+                  )}
+                </div>
               </div>
 
-              <div className="flex flex-col items-center">
-                <span className="text-[9px] font-bold text-emerald-400 uppercase">Lost</span>
-                <span className="text-xs font-black text-emerald-400">
-                  ↓ {weightStats.weightLostArc} {weightStats.unit}
-                </span>
-              </div>
-
-              <div className="bg-[#181C23] px-3 py-1.5 rounded-xl border border-emerald-500/30">
-                <span className="text-[9px] font-black text-emerald-400 uppercase block">Current</span>
-                <span className="text-base font-black text-white">{weightStats.currentWeight} {weightStats.unit}</span>
-              </div>
-
-              <div className="flex flex-col items-center">
-                <span className="text-[9px] font-bold text-zinc-500 uppercase">To Go</span>
-                <span className="text-xs font-black text-zinc-300">
-                  {weightStats.weightRemainingToGoal} {weightStats.unit}
-                </span>
-              </div>
-
-              <div>
-                <span className="text-[9px] font-bold text-zinc-500 uppercase block">Goal</span>
-                <span className="text-xs font-black text-zinc-300">
-                  {currentArc.goalWeight > 0 ? `${currentArc.goalWeight} ${weightStats.unit}` : '—'}
-                </span>
-              </div>
+              {weightChange !== null ? (
+                <div className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#DCEAF4] text-[#12324A] text-xs font-black">
+                  <TrendingDown className="w-3.5 h-3.5 stroke-[1.75]" />
+                  <span>{weightChange > 0 ? `+${weightChange}` : weightChange} {weightStats?.unit || 'lbs'} since start</span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#F7F6F2] text-[#68727D] text-xs font-bold">
+                  <span>No change recorded</span>
+                </div>
+              )}
             </div>
 
-            {/* Progress toward goal */}
-            {currentArc.goalWeight > 0 && (
-              <div className="space-y-1">
-                <div className="flex justify-between text-[11px] font-semibold text-zinc-400">
-                  <span>Arc Goal Progress</span>
-                  <span className="text-emerald-400 font-bold">{weightStats.percentToGoal}%</span>
+            {/* Interactive Weight Chart or Empty State */}
+            {chartData.length >= 2 ? (
+              <div className="h-44 w-full -ml-3">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#EEEDE9" />
+                    <XAxis
+                      dataKey="date"
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fill: '#68727D', fontSize: 10, fontWeight: 600 }}
+                    />
+                    <YAxis
+                      domain={['dataMin - 4', 'dataMax + 4']}
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fill: '#68727D', fontSize: 10, fontWeight: 600 }}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: '#12324A',
+                        borderRadius: '12px',
+                        color: '#FFF',
+                        fontSize: '11px',
+                        border: 'none',
+                      }}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="weight"
+                      stroke="#4A90C2"
+                      strokeWidth={3}
+                      dot={{ r: 4, fill: '#4A90C2', strokeWidth: 2, stroke: '#FFFFFF' }}
+                      activeDot={{ r: 6, fill: '#12324A' }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            ) : chartData.length === 1 ? (
+              <div className="py-6 px-4 text-center rounded-2xl bg-[#F7F6F2] border border-[#EEEDE9] space-y-1">
+                <span className="text-xs font-black text-[#0D1B2A] block">1 Weigh-In Recorded: {chartData[0].weight} {weightStats?.unit || 'lbs'}</span>
+                <p className="text-[11px] text-[#68727D]">Log at least one more weigh-in to generate your progress trend graph.</p>
+              </div>
+            ) : (
+              <div className="py-8 px-4 text-center rounded-2xl bg-[#F7F6F2] border border-[#EEEDE9] space-y-2">
+                <div className="w-10 h-10 rounded-2xl bg-[#DCEAF4] text-[#12324A] mx-auto flex items-center justify-center">
+                  <Scale className="w-5 h-5 stroke-[1.75]" />
                 </div>
-                <div className="w-full h-1.5 bg-zinc-900 rounded-full overflow-hidden border border-zinc-800">
-                  <div
-                    className="h-full bg-emerald-400 rounded-full shadow-[0_0_8px_rgba(52,211,153,0.3)] transition-all duration-500"
-                    style={{ width: `${weightStats.percentToGoal}%` }}
-                  />
-                </div>
+                <h4 className="text-xs font-black text-[#0D1B2A]">No Weigh-In Entries Recorded</h4>
+                <p className="text-[11px] text-[#68727D] max-w-xs mx-auto">
+                  Log your first weigh-in to begin charting your weight change and progression towards your goal.
+                </p>
               </div>
             )}
-          </>
-        ) : (
-          <div className="bg-zinc-900/90 p-4 rounded-2xl border border-white/[0.05] text-center space-y-1">
-            <p className="text-xs font-bold text-zinc-300">No Weight Entries Yet</p>
-            <p className="text-[11px] text-zinc-500">
-              Record your first weigh-in to establish your lifetime baseline and track your progress.
-            </p>
-          </div>
-        )}
-      </div>
 
-      {/* SECTION: SUMMARY STAT CARDS */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-        <div className="bg-[#14171D] p-3 rounded-2xl border border-white/[0.07] shadow-xs">
-          <span className="text-[9px] font-bold text-zinc-400 uppercase block">Total XP</span>
-          <span className="text-lg font-black text-white">{stats.totalXp.toLocaleString()}</span>
-        </div>
-        <div className="bg-[#14171D] p-3 rounded-2xl border border-white/[0.07] shadow-xs">
-          <span className="text-[9px] font-bold text-zinc-400 uppercase block">Daily Avg XP</span>
-          <span className="text-lg font-black text-white">{stats.avgXp}</span>
-        </div>
-        <div className="bg-[#14171D] p-3 rounded-2xl border border-white/[0.07] shadow-xs">
-          <span className="text-[9px] font-bold text-zinc-400 uppercase block">Conquered Days</span>
-          <span className="text-lg font-black text-emerald-400">{stats.successfulDays}</span>
-        </div>
-        <div className="bg-[#14171D] p-3 rounded-2xl border border-white/[0.07] shadow-xs">
-          <span className="text-[9px] font-bold text-zinc-400 uppercase block">Gym Sessions</span>
-          <span className="text-lg font-black text-white">{stats.gymSessions}</span>
-        </div>
-        <div className="bg-[#14171D] p-3 rounded-2xl border border-white/[0.07] shadow-xs">
-          <span className="text-[9px] font-bold text-zinc-400 uppercase block">Avg Steps</span>
-          <span className="text-lg font-black text-white">{stats.avgSteps.toLocaleString()}</span>
-        </div>
-        <div className="bg-[#14171D] p-3 rounded-2xl border border-white/[0.07] shadow-xs">
-          <span className="text-[9px] font-bold text-zinc-400 uppercase block">Avg Sleep</span>
-          <span className="text-lg font-black text-cyan-400">{stats.avgSleep}h</span>
-        </div>
-        <div className="bg-[#14171D] p-3 rounded-2xl border border-white/[0.07] shadow-xs">
-          <span className="text-[9px] font-bold text-zinc-400 uppercase block">Avg Focus</span>
-          <span className="text-lg font-black text-amber-400">{stats.avgFocus}</span>
-        </div>
-        <div className="bg-[#14171D] p-3 rounded-2xl border border-white/[0.07] shadow-xs">
-          <span className="text-[9px] font-bold text-zinc-400 uppercase block">Side Quests</span>
-          <span className="text-lg font-black text-white">{stats.sideQuestsCompleted}</span>
-        </div>
-      </div>
-
-      {/* SECTION: INTERACTIVE CHARTS */}
-      <div className="bg-[#14171D] rounded-3xl p-4 border border-white/[0.08] shadow-sm space-y-3">
-        <div className="flex items-center justify-between">
-          <h3 className="text-sm font-black text-white tracking-tight uppercase">
-            PERFORMANCE GRAPHS
-          </h3>
-
-          <div className="flex bg-zinc-900 border border-white/[0.08] p-1 rounded-xl">
-            {(['xp', 'weight', 'steps', 'sleep'] as ChartTab[]).map((tab) => (
-              <button
-                key={tab}
-                type="button"
-                onClick={() => setActiveChartTab(tab)}
-                className={`px-2 py-0.5 rounded-lg text-xs font-bold uppercase transition-all cursor-pointer ${
-                  activeChartTab === tab
-                    ? 'bg-emerald-500 text-black font-black'
-                    : 'text-zinc-400 hover:text-white'
-                }`}
-              >
-                {tab}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="h-60 w-full pt-2">
-          {activeChartTab === 'xp' && (
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#22272E" />
-                <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#71717A' }} tickLine={false} axisLine={false} />
-                <YAxis tick={{ fontSize: 10, fill: '#71717A' }} tickLine={false} axisLine={false} domain={[0, 'auto']} />
-                <Tooltip
-                  contentStyle={{ backgroundColor: '#181C23', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)', color: '#fff' }}
-                  formatter={(val: number) => [`${val} XP`, 'Daily XP']}
-                />
-                <ReferenceLine y={85} stroke="#22C55E" strokeDasharray="3 3" label={{ value: '85 Goal', fill: '#22C55E', fontSize: 10, position: 'top' }} />
-                <Bar dataKey="totalXp" fill="#22C55E" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          )}
-
-          {activeChartTab === 'weight' && (
-            weightChartData.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={weightChartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#22272E" />
-                  <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#71717A' }} tickLine={false} axisLine={false} />
-                  <YAxis tick={{ fontSize: 10, fill: '#71717A' }} tickLine={false} axisLine={false} domain={['dataMin - 2', 'dataMax + 2']} />
-                  <Tooltip
-                    contentStyle={{ backgroundColor: '#181C23', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)', color: '#fff' }}
-                    formatter={(val: number) => [`${val} ${weightStats.unit || 'lb'}`, 'Weight']}
-                  />
-                  {currentArc.goalWeight > 0 && (
-                    <ReferenceLine y={currentArc.goalWeight} stroke="#22C55E" strokeDasharray="3 3" label={{ value: `${currentArc.goalWeight} ${weightStats.unit || 'lb'} Goal`, fill: '#22C55E', fontSize: 10, position: 'bottom' }} />
-                  )}
-                  <Line type="monotone" dataKey="weight" stroke="#34D399" strokeWidth={2.5} dot={{ r: 3, fill: '#34D399' }} />
-                </LineChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="h-full flex items-center justify-center text-xs font-bold text-zinc-500">
-                Log weigh-ins to plot your weight trend line.
-              </div>
-            )
-          )}
-
-          {activeChartTab === 'steps' && (
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chartData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#22272E" />
-                <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#71717A' }} tickLine={false} axisLine={false} />
-                <YAxis tick={{ fontSize: 10, fill: '#71717A' }} tickLine={false} axisLine={false} />
-                <Tooltip
-                  contentStyle={{ backgroundColor: '#181C23', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)', color: '#fff' }}
-                  formatter={(val: number) => [`${val.toLocaleString()}`, 'Steps']}
-                />
-                <ReferenceLine y={10000} stroke="#22C55E" strokeDasharray="3 3" label={{ value: '10k Goal', fill: '#22C55E', fontSize: 10, position: 'top' }} />
-                <Bar dataKey="steps" fill="#22C55E" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          )}
-
-          {activeChartTab === 'sleep' && (
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#22272E" />
-                <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#71717A' }} tickLine={false} axisLine={false} />
-                <YAxis tick={{ fontSize: 10, fill: '#71717A' }} tickLine={false} axisLine={false} domain={[0, 12]} />
-                <Tooltip
-                  contentStyle={{ backgroundColor: '#181C23', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)', color: '#fff' }}
-                  formatter={(val: number) => [`${val} hrs`, 'Sleep']}
-                />
-                <ReferenceLine y={8.0} stroke="#38BDF8" strokeDasharray="3 3" label={{ value: '8h Target', fill: '#38BDF8', fontSize: 10, position: 'top' }} />
-                <Bar dataKey="sleep" fill="#38BDF8" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          )}
-        </div>
-      </div>
-
-      {/* SECTION: HISTORICAL INSPECTION */}
-      <section className="bg-[#14171D] rounded-3xl p-4 border border-white/[0.08] shadow-sm space-y-3">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-sm font-black text-white tracking-tight uppercase">
-              HISTORICAL DAYS
-            </h3>
-            <p className="text-[11px] text-zinc-400">
-              Tap any date to inspect details or edit past logs
-            </p>
-          </div>
-        </div>
-
-        <div className="divide-y divide-zinc-800/80 max-h-72 overflow-y-auto no-scrollbar">
-          {allLogs.length === 0 ? (
-            <div className="py-6 text-center text-xs font-semibold text-zinc-500">
-              No historical days logged yet. As you complete days, they will appear here permanently.
-            </div>
-          ) : (
-            [...allLogs]
-              .sort((a, b) => b.date.localeCompare(a.date))
-              .map((log) => {
-                const dateObj = parseDate(log.date);
-                const dayName = dateObj.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-                const isConquered = log.isConqueredDay || log.totalXp >= 85;
-
+            {/* Time Range Pills */}
+            <div className="flex items-center justify-between border-t border-[#EEEDE9] pt-3">
+              {(['1W', '1M', '3M', 'All'] as TimeRange[]).map((r) => {
+                const isActive = timeRange === r;
                 return (
-                  <div
-                    key={log.date}
-                    onClick={() => onSelectHistoricalDate(log.date)}
-                    className="py-3 px-1 flex items-center justify-between hover:bg-zinc-800/50 rounded-xl cursor-pointer transition-all"
+                  <button
+                    key={r}
+                    type="button"
+                    onClick={() => setTimeRange(r)}
+                    className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
+                      isActive
+                        ? 'bg-[#12324A] text-white'
+                        : 'text-[#68727D] hover:text-[#0D1B2A]'
+                    }`}
                   >
-                    <div>
-                      <span className="text-sm font-bold text-white block">
-                        {dayName}
-                      </span>
-                      <div className="flex items-center gap-2 text-[11px] text-zinc-400 mt-0.5">
-                        <span>{log.completedQuestIds.length} routine</span>
-                        <span>•</span>
-                        <span>{log.steps ? `${log.steps.toLocaleString()} steps` : '0 steps'}</span>
-                        <span>•</span>
-                        <span>{log.sleepHours ? `${log.sleepHours}h sleep` : '0h sleep'}</span>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2.5">
-                      <div className="text-right">
-                        <span className="text-sm font-black text-white block">
-                          {log.totalXp} XP
-                        </span>
-                        <span className={`text-[10px] font-bold uppercase ${
-                          isConquered ? 'text-emerald-400' : 'text-zinc-500'
-                        }`}>
-                          {log.dailyRank}
-                        </span>
-                      </div>
-                      <ChevronRight className="w-4 h-4 text-zinc-500" />
-                    </div>
-                  </div>
+                    {r}
+                  </button>
                 );
-              })
-          )}
-        </div>
-      </section>
+              })}
+            </div>
 
-      {/* SECTION: RECORDED WEIGHT HISTORY LOG */}
-      <section className="bg-[#14171D] rounded-3xl p-4 border border-white/[0.08] shadow-sm space-y-3">
-        <div className="flex items-center justify-between">
-          <h3 className="text-sm font-black text-white tracking-tight uppercase">
-            WEIGH-IN LOG
-          </h3>
+            {/* 3 Stat Boxes: Start, Goal, Change */}
+            <div className="grid grid-cols-3 gap-2.5 pt-1">
+              <div className="bg-[#F7F6F2] p-3 rounded-2xl text-center border border-[#EEEDE9]">
+                <span className="text-sm font-black text-[#0D1B2A] block">
+                  {startingWeight !== null ? startingWeight : '—'}
+                </span>
+                <span className="text-[10px] font-bold text-[#68727D] uppercase">
+                  Start
+                </span>
+              </div>
+
+              <div className="bg-[#F7F6F2] p-3 rounded-2xl text-center border border-[#EEEDE9]">
+                <span className="text-sm font-black text-[#0D1B2A] block">
+                  {goalWeight !== null ? goalWeight : '—'}
+                </span>
+                <span className="text-[10px] font-bold text-[#68727D] uppercase">
+                  Goal
+                </span>
+              </div>
+
+              <div className="bg-[#F7F6F2] p-3 rounded-2xl text-center border border-[#EEEDE9]">
+                <span className="text-sm font-black text-[#4A90C2] block">
+                  {weightChange !== null ? (weightChange > 0 ? `+${weightChange}` : weightChange) : '—'}
+                </span>
+                <span className="text-[10px] font-bold text-[#68727D] uppercase">
+                  Change
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Body Measurements Card */}
+          <BodyMeasurementsCard />
+
+          {/* Quick Weight Entry Trigger */}
           <button
             type="button"
             onClick={onOpenWeightModal}
-            className="text-xs font-bold text-emerald-400 hover:text-emerald-300 cursor-pointer"
+            className="w-full py-3.5 rounded-2xl bg-[#12324A] hover:bg-[#0D1B2A] text-white text-xs font-black uppercase tracking-wider shadow-xs flex items-center justify-center gap-2 cursor-pointer transition-all min-h-[44px]"
           >
-            + New Weigh-in
+            <Plus className="w-4 h-4 stroke-[2]" />
+            <span>Log Today's Weight</span>
           </button>
         </div>
+      )}
 
-        <div className="divide-y divide-zinc-800/80 max-h-48 overflow-y-auto no-scrollbar">
-          {weightEntries.length === 0 ? (
-            <div className="py-6 text-center text-xs text-zinc-500 font-bold">
-              No recorded weigh-ins yet. Tap "+ New Weigh-in" above to log your weight.
+      {activeCategory === 'steps' && (
+        <div className="bg-white rounded-3xl p-5 border border-[#EEEDE9] shadow-xs space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <span className="text-[10px] font-bold text-[#68727D] uppercase block">Daily Average</span>
+              <span className="text-xl font-black text-[#0D1B2A]">
+                {dailyAverageSteps !== null ? `${dailyAverageSteps.toLocaleString()} steps` : '—'}
+              </span>
+            </div>
+            <div className="w-9 h-9 rounded-xl bg-[#DCEAF4] text-[#12324A] flex items-center justify-center">
+              <Footprints className="w-5 h-5 stroke-[1.75]" />
+            </div>
+          </div>
+
+          {stepsData.length > 0 ? (
+            <div className="h-44 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={stepsData}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#EEEDE9" />
+                  <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fill: '#68727D', fontSize: 10 }} />
+                  <YAxis axisLine={false} tickLine={false} tick={{ fill: '#68727D', fontSize: 10 }} />
+                  <Bar dataKey="steps" fill="#4A90C2" radius={[6, 6, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
             </div>
           ) : (
-            [...weightEntries]
-              .sort((a, b) => b.date.localeCompare(a.date))
-              .map((entry) => (
-                <div key={entry.id} className="py-2.5 px-1 flex items-center justify-between text-xs">
-                  <div>
-                    <span className="font-bold text-zinc-200 block">{entry.date}</span>
-                    {entry.note && <span className="text-[11px] text-zinc-400">{entry.note}</span>}
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className="font-black text-emerald-400 text-sm">
-                      {entry.weight} {weightStats.unit || 'lb'}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => deleteWeightEntry(entry.id)}
-                      className="text-zinc-500 hover:text-red-400 text-[11px] cursor-pointer"
-                      title="Delete entry"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                </div>
-              ))
+            <div className="py-8 px-4 text-center rounded-2xl bg-[#F7F6F2] border border-[#EEEDE9] space-y-1">
+              <span className="text-xs font-black text-[#0D1B2A] block">No Step Logs Yet</span>
+              <p className="text-[11px] text-[#68727D]">Log your daily steps in the Quests tab to generate your weekly graph.</p>
+            </div>
           )}
         </div>
-      </section>
+      )}
+
+      {activeCategory === 'workouts' && (
+        <div className="bg-white rounded-3xl p-5 border border-[#EEEDE9] shadow-xs space-y-3">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-[#DCEAF4] text-[#12324A] flex items-center justify-center">
+              <Dumbbell className="w-5 h-5 stroke-[1.75]" />
+            </div>
+            <div>
+              <h3 className="text-sm font-black text-[#0D1B2A]">Training Frequency</h3>
+              <p className="text-xs text-[#68727D] font-medium">
+                {gymSessionCount > 0 
+                  ? `${gymSessionCount} gym session${gymSessionCount > 1 ? 's' : ''} logged`
+                  : 'No gym sessions logged yet'}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {activeCategory === 'habits' && (
+        <div className="bg-white rounded-3xl p-5 border border-[#EEEDE9] shadow-xs space-y-3">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-[#DCEAF4] text-[#12324A] flex items-center justify-center">
+              <Flame className="w-5 h-5 text-[#4A90C2] stroke-[1.75]" />
+            </div>
+            <div>
+              <h3 className="text-sm font-black text-[#0D1B2A]">Daily Habit Execution</h3>
+              <p className="text-xs text-[#68727D] font-medium">
+                {avgRoutinePerf !== null 
+                  ? `${avgRoutinePerf}% average routine completion`
+                  : 'No habit logs recorded yet'}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

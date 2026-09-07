@@ -33,23 +33,23 @@ export const XpRing: React.FC<XpRingProps> = ({
 
   return (
     <div className="relative flex flex-col items-center justify-center" style={{ width: size, height: size }}>
-      <svg className="transform -rotate-90 drop-shadow-[0_0_12px_rgba(34,197,94,0.15)]" width={size} height={size}>
+      <svg className="transform -rotate-90" width={size} height={size}>
         {/* Background track */}
         <circle
           cx={size / 2}
           cy={size / 2}
           r={radius}
-          stroke="#181D24"
+          stroke="#EEEDE9"
           strokeWidth={strokeWidth}
           fill="transparent"
         />
 
-        {/* Primary Progress Ring in Vivid Emerald Green */}
+        {/* Primary Progress Ring in Navy/Blue */}
         <motion.circle
           cx={size / 2}
           cy={size / 2}
           r={radius}
-          stroke={isPerfectDay ? '#4ADE80' : isConquered ? '#22C55E' : '#38BDF8'}
+          stroke={isPerfectDay ? '#12324A' : isConquered ? '#12324A' : '#4A90C2'}
           strokeWidth={strokeWidth}
           strokeDasharray={circumference}
           strokeDashoffset={strokeDashoffset}
@@ -63,7 +63,7 @@ export const XpRing: React.FC<XpRingProps> = ({
 
       {/* Center Information */}
       <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-3">
-        <span className="text-[10px] font-extrabold tracking-widest uppercase text-zinc-400">
+        <span className="text-[10px] font-extrabold tracking-widest uppercase text-[#68727D]">
           CORE PERFORMANCE
         </span>
 
@@ -73,7 +73,7 @@ export const XpRing: React.FC<XpRingProps> = ({
             key={percent}
             initial={{ scale: 0.85, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            className="text-4xl font-black tracking-tight text-white"
+            className="text-4xl font-black tracking-tight text-[#0D1B2A]"
             style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
           >
             {percent}%
@@ -81,23 +81,21 @@ export const XpRing: React.FC<XpRingProps> = ({
         </div>
 
         {/* XP sub-stat */}
-        <span className="text-[11px] font-semibold text-zinc-400">
+        <span className="text-[11px] font-semibold text-[#68727D]">
           {currentXp} / {goalXp} XP
         </span>
 
         {/* Status Pill Badge */}
         {isPerfectDay ? (
-          <div className="inline-flex items-center gap-1 px-2.5 py-0.5 mt-1.5 rounded-full bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 text-[10px] font-black tracking-wide shadow-[0_0_10px_rgba(52,211,153,0.3)]">
+          <div className="inline-flex items-center gap-1 px-2.5 py-0.5 mt-1.5 rounded-full bg-[#DCEAF4] text-[#12324A] text-[10px] font-black tracking-wide">
             <span>PERFECT DAY</span>
-            <span>💎</span>
           </div>
         ) : isConquered ? (
-          <div className="inline-flex items-center gap-1 px-2.5 py-0.5 mt-1.5 rounded-full bg-emerald-500/20 border border-emerald-400/30 text-emerald-400 text-[10px] font-black tracking-wide">
+          <div className="inline-flex items-center gap-1 px-2.5 py-0.5 mt-1.5 rounded-full bg-[#DCEAF4] text-[#12324A] text-[10px] font-black tracking-wide">
             <span>DAY CONQUERED</span>
-            <span>✓</span>
           </div>
         ) : (
-          <div className="inline-flex items-center gap-1 px-2 py-0.5 mt-1.5 rounded-full bg-zinc-800/80 text-zinc-400 text-[10px] font-bold tracking-wide">
+          <div className="inline-flex items-center gap-1 px-2.5 py-0.5 mt-1.5 rounded-full bg-[#F7F6F2] text-[#68727D] text-[10px] font-bold tracking-wide">
             <span>{dailyRank}</span>
           </div>
         )}

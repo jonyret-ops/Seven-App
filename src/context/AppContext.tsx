@@ -3,36 +3,57 @@ import React, { createContext, useContext, useEffect, useMemo, useState } from '
 import {
   DEFAULT_ARC,
   DEFAULT_PROFILE,
+  DEFAULT_WEEKLY_SCHEDULE,
   INITIAL_PERSONAL_RECORDS,
+  DEFAULT_NUTRITION_SETTINGS,
+  WEEKLY_GOALS_POOL,
+  getWeeklyGoalForCycle,
   getDailyBonusObjective
 } from '../constants';
 import {
   addDays,
+  calculateBodyMeasurementSummaries,
   calculateCharacterStats,
+  calculateDailyMacroSummary,
   calculateDailyMetrics,
   calculateLevel,
   calculateStatusSnapshot,
   calculateStreaks,
+  calculateWeeklyGoalProgress,
   calculateWeightStats,
+  countEligibleActiveDays,
   evaluateAchievements,
   formatDate,
-  getDaysDifference
+  getDaysDifference,
+  isRestDay
 } from '../lib/calculations';
 import { soundEngine } from '../lib/sound';
 import { repository } from '../lib/storage';
+import { db } from '../lib/db';
 import {
   Achievement,
   Arc,
   ArcRecap,
+  AvatarId,
+  BodyMeasurementEntry,
+  BodyMeasurementSummary,
+  BodyMeasurementType,
   BonusObjectiveDefinition,
   CharacterStats,
+  DailyFocusIntention,
   DailyLog,
+  DailyMacroSummary,
+  DayOfWeek,
+  MealLog,
+  NutritionSettings,
   PersonalRecord,
   StatusSnapshot,
   StreakStats,
   UserProfile,
   WeightEntry,
   WeightStats,
+  WeeklyGoalDefinition,
+  WeeklyGoalInstance,
 } from '../types';
 
 interface LevelUpInfo {
@@ -48,16 +69,50 @@ interface AppContextType {
   selectedDate: string;
   setSelectedDate: (date: string) => void;
   currentLog: DailyLog;
+  todayLog: DailyLog;
   allLogs: DailyLog[];
   weightEntries: WeightEntry[];
   achievements: Achievement[];
   personalRecords: PersonalRecord[];
   arcRecaps: ArcRecap[];
+
+  // Body Measurements (Part XXXVI - XXXVIII)
+  bodyMeasurements: BodyMeasurementEntry[];
+  bodyMeasurementSummaries: BodyMeasurementSummary[];
+  addBodyMeasurement: (type: BodyMeasurementType, value: number, unit?: 'in' | 'cm', date?: string, note?: string) => Promise<void>;
+  deleteBodyMeasurement: (id: string) => Promise<void>;
+
+  // Nutrition & Macros (Part XLI - XLV)
+  mealLogs: MealLog[];
+  todayMealLogs: MealLog[];
+  selectedDateMealLogs: MealLog[];
+  nutritionSettings: NutritionSettings;
+  todayMacros: DailyMacroSummary;
+  selectedDateMacros: DailyMacroSummary;
+  addMealLog: (meal: Omit<MealLog, 'id' | 'createdAt'>) => Promise<void>;
+  deleteMealLog: (id: string) => Promise<void>;
+  updateNutritionSettings: (settings: Partial<NutritionSettings>) => Promise<void>;
+
+  // Weekly Goals (Part XXV - XXVIII)
+  activeWeeklyGoal: WeeklyGoalDefinition;
+  weeklyGoalProgress: number;
+  weeklyGoalTarget: number;
+  weeklyGoalPercent: number;
+  isWeeklyGoalCompleted: boolean;
+
+  // Daily Focus Intentions
+  dailyFocusIntentions: DailyFocusIntention[];
+  addDailyFocusIntention: (text: string) => Promise<void>;
+  toggleDailyFocusIntention: (id: string) => Promise<void>;
+  deleteDailyFocusIntention: (id: string) => Promise<void>;
   
   // Progress calculations
   dayNumber: number;
   daysSinceStart: number;
   daysRemaining: number;
+  eligibleActiveDaysCount: number;
+  isTodayRestDay: boolean;
+  isSelectedDateRestDay: boolean;
   todayXp: number;
   todayCorePerformance: number;
   selectedDateXp: number;
@@ -87,6 +142,10 @@ interface AppContextType {
   resetAllData: () => Promise<void>;
   exportData: () => Promise<string>;
   importData: (json: string) => Promise<boolean>;
+  toggleTrainAnyway: (targetDate?: string) => Promise<void>;
+  toggleDateRestOverride: (targetDate?: string) => Promise<void>;
+  setWeeklyScheduleDay: (day: DayOfWeek, status: 'active' | 'rest') => Promise<void>;
+  setAvatarId: (avatarId: AvatarId) => Promise<void>;
 
   // Celebrations & Modals
   levelUpModalData: LevelUpInfo | null;
@@ -106,6 +165,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [arcRecaps, setArcRecaps] = useState<ArcRecap[]>([]);
   const [allLogs, setAllLogs] = useState<DailyLog[]>([]);
   const [weightEntries, setWeightEntries] = useState<WeightEntry[]>([]);
+  const [bodyMeasurements, setBodyMeasurements] = useState<BodyMeasurementEntry[]>([]);
+  const [mealLogs, setMealLogs] = useState<MealLog[]>([]);
+  const [nutritionSettings, setNutritionSettings] = useState<NutritionSettings>(DEFAULT_NUTRITION_SETTINGS);
+  const [dailyFocusIntentions, setDailyFocusIntentions] = useState<DailyFocusIntention[]>([]);
   const [achievements, setAchievements] = useState<Achievement[]>([]);
   const [personalRecords, setPersonalRecords] = useState<PersonalRecord[]>(INITIAL_PERSONAL_RECORDS);
 
@@ -120,11 +183,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Load persistent data from repository on mount
   useEffect(() => {
     async function loadData() {
+      // One-time initialization wipe to ensure clean slate from zero (Level 1, 0 XP, 0 Streaks, no demo/mock logs)
+      if (localStorage.getItem('seven_clean_slate_final_v1') !== 'true') {
+        await repository.clearAllData();
+        localStorage.setItem('seven_clean_slate_final_v1', 'true');
+      }
+
       const storedProfile = await repository.getProfile();
       let storedArc = await repository.getCurrentArc();
       const storedRecaps = await repository.getArcRecaps();
       const storedLogs = await repository.getAllDailyLogs();
       const storedWeights = await repository.getWeightEntries();
+      const storedBody = await repository.getBodyMeasurements();
+      const storedMeals = await repository.getAllMealLogs();
+      const storedNutrition = await repository.getNutritionSettings();
       const storedAchievements = await repository.getAchievements();
       const storedPRs = await repository.getPersonalRecords();
 
@@ -143,11 +215,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setArcRecaps(storedRecaps);
       setAllLogs(storedLogs);
       setWeightEntries(storedWeights);
+      setBodyMeasurements(storedBody);
+      setMealLogs(storedMeals);
+      setNutritionSettings(storedNutrition);
       setAchievements(storedAchievements);
       setPersonalRecords(storedPRs);
     }
     loadData();
   }, [activeTodayDate]);
+
+  // Load focus intentions on selectedDate change
+  useEffect(() => {
+    repository.getDailyFocusIntentions(selectedDate).then(setDailyFocusIntentions);
+  }, [selectedDate]);
 
   // Helper to get or create log for a specific date
   const getLogForDate = (date: string, logsList: DailyLog[]): DailyLog => {
@@ -246,8 +326,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const map = new Map<string, DailyLog>();
     allLogs.forEach(l => map.set(l.date, l));
     map.set(currentLog.date, currentLog);
-    return calculateStreaks(Array.from(map.values()), activeTodayDate, profile.conqueredThresholdPercent);
-  }, [allLogs, currentLog, activeTodayDate, profile.conqueredThresholdPercent]);
+    return calculateStreaks(Array.from(map.values()), activeTodayDate, profile.conqueredThresholdPercent, profile);
+  }, [allLogs, currentLog, activeTodayDate, profile]);
 
   const weightStats = useMemo(() => {
     return calculateWeightStats(
@@ -269,6 +349,68 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const daysSinceStart = Math.max(0, getDaysDifference(arcStartDate, activeTodayDate));
   const dayNumber = Math.max(1, daysSinceStart + 1);
   const daysRemaining = Math.max(0, getDaysDifference(activeTodayDate, arcGoalDate));
+
+  // Body Measurements Derived (Part XXXVI - XXXVIII)
+  const bodyMeasurementSummaries = useMemo(() => {
+    return calculateBodyMeasurementSummaries(bodyMeasurements);
+  }, [bodyMeasurements]);
+
+  // Nutrition Derived (Part XLI - XLV)
+  const todayMealLogs = useMemo(() => {
+    return mealLogs.filter(m => m.date === activeTodayDate);
+  }, [mealLogs, activeTodayDate]);
+
+  const selectedDateMealLogs = useMemo(() => {
+    return mealLogs.filter(m => m.date === selectedDate);
+  }, [mealLogs, selectedDate]);
+
+  const todayMacros = useMemo(() => {
+    return calculateDailyMacroSummary(mealLogs, activeTodayDate, nutritionSettings);
+  }, [mealLogs, activeTodayDate, nutritionSettings]);
+
+  const selectedDateMacros = useMemo(() => {
+    return calculateDailyMacroSummary(mealLogs, selectedDate, nutritionSettings);
+  }, [mealLogs, selectedDate, nutritionSettings]);
+
+  // Weekly Goal Derived (Part XXV - XXVIII)
+  const cycleStartDate = useMemo(() => {
+    return addDays(currentArc.startDate || activeTodayDate, Math.floor(Math.max(0, daysSinceStart) / 7) * 7);
+  }, [currentArc.startDate, activeTodayDate, daysSinceStart]);
+
+  const cycleEndDate = useMemo(() => addDays(cycleStartDate, 6), [cycleStartDate]);
+
+  const activeWeeklyGoal = useMemo(() => {
+    return getWeeklyGoalForCycle(cycleStartDate, WEEKLY_GOALS_POOL);
+  }, [cycleStartDate]);
+
+  const cycleLogs = useMemo(() => {
+    return allLogs.filter(l => l.date >= cycleStartDate && l.date <= cycleEndDate);
+  }, [allLogs, cycleStartDate, cycleEndDate]);
+
+  const cycleMealLogs = useMemo(() => {
+    return mealLogs.filter(m => m.date >= cycleStartDate && m.date <= cycleEndDate);
+  }, [mealLogs, cycleStartDate, cycleEndDate]);
+
+  const weeklyGoalProgress = useMemo(() => {
+    return calculateWeeklyGoalProgress(activeWeeklyGoal, cycleLogs, cycleMealLogs, nutritionSettings);
+  }, [activeWeeklyGoal, cycleLogs, cycleMealLogs, nutritionSettings]);
+
+  const weeklyGoalTarget = activeWeeklyGoal.targetValue;
+  const weeklyGoalPercent = Math.min(100, Math.round((weeklyGoalProgress / weeklyGoalTarget) * 100));
+  const isWeeklyGoalCompleted = weeklyGoalProgress >= weeklyGoalTarget;
+
+  // Rest Day calculations
+  const isTodayRestDay = useMemo(() => {
+    return isRestDay(activeTodayDate, profile);
+  }, [activeTodayDate, profile]);
+
+  const isSelectedDateRestDay = useMemo(() => {
+    return isRestDay(selectedDate, profile);
+  }, [selectedDate, profile]);
+
+  const eligibleActiveDaysCount = useMemo(() => {
+    return countEligibleActiveDays(arcStartDate, activeTodayDate, profile);
+  }, [arcStartDate, activeTodayDate, profile]);
 
   const isDateFuture = (dateStr: string): boolean => {
     return dateStr > activeTodayDate;
@@ -380,7 +522,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           particleCount: 100,
           spread: 90,
           origin: { y: 0.6 },
-          colors: ['#22C55E', '#38E54D', '#38BDF8', '#F59E0B'],
+          colors: ['#12324A', '#4A90C2', '#DCEAF4', '#0D1B2A'],
         });
       } catch {}
     } 
@@ -392,7 +534,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           particleCount: 50,
           spread: 60,
           origin: { y: 0.7 },
-          colors: ['#22C55E', '#10B981', '#38E54D'],
+          colors: ['#12324A', '#4A90C2', '#DCEAF4'],
         });
       } catch {}
     }
@@ -407,7 +549,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           particleCount: 90,
           spread: 80,
           origin: { y: 0.5 },
-          colors: ['#22C55E', '#F59E0B', '#38BDF8', '#6366F1'],
+          colors: ['#12324A', '#4A90C2', '#DCEAF4', '#0D1B2A'],
         });
       } catch {}
       setLevelUpModalData({
@@ -488,7 +630,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const setSleep = async (hours: number) => {
-    const validSleep = Math.max(0, Math.min(24, Number((isNaN(hours) ? 0 : hours).toFixed(1))));
+    const validSleep = Math.max(0, Math.min(24, isNaN(hours) ? 0 : Number(Number(hours).toFixed(2))));
     await saveAndSyncLog({ sleepHours: validSleep });
   };
 
@@ -590,6 +732,81 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setWeightEntries(entries);
   };
 
+  // Body Measurement Actions (Part XXXVI - XXXVIII)
+  const addBodyMeasurement = async (
+    type: BodyMeasurementType,
+    value: number,
+    unit: 'in' | 'cm' = 'in',
+    date = activeTodayDate,
+    note?: string
+  ) => {
+    const newEntry: BodyMeasurementEntry = {
+      id: `meas_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+      date,
+      measurementType: type,
+      value,
+      unit,
+      note,
+      createdAt: new Date().toISOString(),
+    };
+    await repository.saveBodyMeasurement(newEntry);
+    setBodyMeasurements(prev => [...prev.filter(m => !(m.date === date && m.measurementType === type)), newEntry]);
+  };
+
+  const deleteBodyMeasurement = async (id: string) => {
+    await repository.deleteBodyMeasurement(id);
+    setBodyMeasurements(prev => prev.filter(m => m.id !== id));
+  };
+
+  // Meal & Nutrition Actions (Part XLI - XLV)
+  const addMealLog = async (meal: Omit<MealLog, 'id' | 'createdAt'>) => {
+    const newMeal: MealLog = {
+      ...meal,
+      id: `meal_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+      createdAt: new Date().toISOString(),
+    };
+    await repository.saveMealLog(newMeal);
+    setMealLogs(prev => [...prev, newMeal]);
+  };
+
+  const deleteMealLog = async (id: string) => {
+    await repository.deleteMealLog(id);
+    setMealLogs(prev => prev.filter(m => m.id !== id));
+  };
+
+  const updateNutritionSettings = async (updates: Partial<NutritionSettings>) => {
+    const merged = { ...nutritionSettings, ...updates };
+    setNutritionSettings(merged);
+    await repository.saveNutritionSettings(merged);
+  };
+
+  // Daily Focus Intentions Actions
+  const addDailyFocusIntention = async (text: string) => {
+    if (!text.trim()) return;
+    const newIntention: DailyFocusIntention = {
+      id: `focus_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+      date: selectedDate,
+      text: text.trim(),
+      isCompleted: false,
+      order: dailyFocusIntentions.length,
+    };
+    await repository.saveDailyFocusIntention(newIntention);
+    setDailyFocusIntentions(prev => [...prev, newIntention]);
+  };
+
+  const toggleDailyFocusIntention = async (id: string) => {
+    const item = dailyFocusIntentions.find(i => i.id === id);
+    if (!item) return;
+    const updated = { ...item, isCompleted: !item.isCompleted };
+    await repository.saveDailyFocusIntention(updated);
+    setDailyFocusIntentions(prev => prev.map(i => i.id === id ? updated : i));
+  };
+
+  const deleteDailyFocusIntention = async (id: string) => {
+    await db.dailyFocusIntentions.delete(id);
+    setDailyFocusIntentions(prev => prev.filter(i => i.id !== id));
+  };
+
   const updateProfile = async (updates: Partial<UserProfile>) => {
     const updated = { ...profile, ...updates };
     setProfile(updated);
@@ -647,6 +864,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setCurrentArc(defaultArc);
     setAllLogs([]);
     setWeightEntries(defaultW);
+    setBodyMeasurements([]);
+    setMealLogs([]);
+    setNutritionSettings(DEFAULT_NUTRITION_SETTINGS);
+    setDailyFocusIntentions([]);
     setAchievements(defaultA);
     setPersonalRecords(defaultPR);
     setArcRecaps([]);
@@ -665,6 +886,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const recaps = await repository.getArcRecaps();
       const logs = await repository.getAllDailyLogs();
       const weights = await repository.getWeightEntries();
+      const body = await repository.getBodyMeasurements();
+      const meals = await repository.getAllMealLogs();
+      const nutrition = await repository.getNutritionSettings();
       const ach = await repository.getAchievements();
       const prs = await repository.getPersonalRecords();
       setProfile(p);
@@ -672,10 +896,49 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setArcRecaps(recaps);
       setAllLogs(logs);
       setWeightEntries(weights);
+      setBodyMeasurements(body);
+      setMealLogs(meals);
+      setNutritionSettings(nutrition);
       setAchievements(ach);
       setPersonalRecords(prs);
     }
     return success;
+  };
+
+  const toggleTrainAnyway = async (targetDate?: string) => {
+    const date = targetDate || selectedDate;
+    const current = profile.trainAnywayDates || [];
+    let updated: string[];
+    if (current.includes(date)) {
+      updated = current.filter(d => d !== date);
+    } else {
+      updated = [...current, date];
+    }
+    await updateProfile({ trainAnywayDates: updated });
+  };
+
+  const toggleDateRestOverride = async (targetDate?: string) => {
+    const date = targetDate || selectedDate;
+    const current = profile.restDayOverrides || [];
+    let updated: string[];
+    if (current.includes(date)) {
+      updated = current.filter(d => d !== date);
+    } else {
+      updated = [...current, date];
+    }
+    await updateProfile({ restDayOverrides: updated });
+  };
+
+  const setWeeklyScheduleDay = async (day: DayOfWeek, status: 'active' | 'rest') => {
+    const updatedSchedule = {
+      ...(profile.weeklySchedule || DEFAULT_WEEKLY_SCHEDULE),
+      [day]: status,
+    };
+    await updateProfile({ weeklySchedule: updatedSchedule });
+  };
+
+  const setAvatarId = async (avatarId: AvatarId) => {
+    await updateProfile({ avatarId });
   };
 
   const dismissLevelUpModal = () => {
@@ -699,14 +962,40 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         selectedDate,
         setSelectedDate,
         currentLog,
+        todayLog,
         allLogs,
         weightEntries,
         achievements,
         personalRecords,
         arcRecaps,
+        bodyMeasurements,
+        bodyMeasurementSummaries,
+        addBodyMeasurement,
+        deleteBodyMeasurement,
+        mealLogs,
+        todayMealLogs,
+        selectedDateMealLogs,
+        nutritionSettings,
+        todayMacros,
+        selectedDateMacros,
+        addMealLog,
+        deleteMealLog,
+        updateNutritionSettings,
+        activeWeeklyGoal,
+        weeklyGoalProgress,
+        weeklyGoalTarget,
+        weeklyGoalPercent,
+        isWeeklyGoalCompleted,
+        dailyFocusIntentions,
+        addDailyFocusIntention,
+        toggleDailyFocusIntention,
+        deleteDailyFocusIntention,
         dayNumber,
         daysSinceStart,
         daysRemaining,
+        eligibleActiveDaysCount,
+        isTodayRestDay,
+        isSelectedDateRestDay,
         todayXp,
         todayCorePerformance,
         selectedDateXp,
@@ -734,6 +1023,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         resetAllData,
         exportData,
         importData,
+        toggleTrainAnyway,
+        toggleDateRestOverride,
+        setWeeklyScheduleDay,
+        setAvatarId,
         levelUpModalData,
         dismissLevelUpModal,
         recentAchievement,

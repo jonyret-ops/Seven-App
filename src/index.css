@@ -15,3 +15,12 @@
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+/* iOS Native Safe Area Support */
+.safe-top-pad {
+  padding-top: max(calc(env(safe-area-inset-top, 0px) + 14px), 28px);
+}
+
+.safe-bottom-pad {
+  padding-bottom: max(calc(env(safe-area-inset-bottom, 0px) + 14px), 24px);
+}

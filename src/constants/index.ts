@@ -1,7 +1,9 @@
 import { 
   Achievement, 
   Arc, 
+  AvatarId,
   BonusObjectiveDefinition, 
+  DayOfWeek,
   LevelDefinition, 
   PersonalRecord, 
   QuestDefinition, 
@@ -12,7 +14,7 @@ import {
 
 export const DEFAULT_ARC: Arc = {
   id: 'arc-initial',
-  name: 'FIRST ARC',
+  name: 'Arc 1',
   startDate: '',
   endDate: '',
   startingWeight: 0,
@@ -24,8 +26,32 @@ export const DEFAULT_ARC: Arc = {
   isCompleted: false,
 };
 
+export const DEFAULT_WEEKLY_SCHEDULE: Record<DayOfWeek, 'active' | 'rest'> = {
+  monday: 'active',
+  tuesday: 'active',
+  wednesday: 'active',
+  thursday: 'active',
+  friday: 'active',
+  saturday: 'active',
+  sunday: 'rest',
+};
+
+export const DAYS_OF_WEEK_LIST: { key: DayOfWeek; label: string; short: string }[] = [
+  { key: 'monday', label: 'Monday', short: 'Mon' },
+  { key: 'tuesday', label: 'Tuesday', short: 'Tue' },
+  { key: 'wednesday', label: 'Wednesday', short: 'Wed' },
+  { key: 'thursday', label: 'Thursday', short: 'Thu' },
+  { key: 'friday', label: 'Friday', short: 'Fri' },
+  { key: 'saturday', label: 'Saturday', short: 'Sat' },
+  { key: 'sunday', label: 'Sunday', short: 'Sun' },
+];
+
 export const DEFAULT_PROFILE: UserProfile = {
   name: '',
+  avatarId: 'disciplined',
+  weeklySchedule: DEFAULT_WEEKLY_SCHEDULE,
+  restDayOverrides: [],
+  trainAnywayDates: [],
   currentArcId: 'arc-initial',
   lifetimeBaselineDate: '',
   lifetimeBaselineWeight: 0,
@@ -43,7 +69,7 @@ export const DEFAULT_PROFILE: UserProfile = {
 // Clean starting state for new user installations (starts from zero)
 export const INITIAL_WEIGHT_ENTRIES: WeightEntry[] = [];
 
-// Exactly 19 Daily Core Quests in Exact Chronological Order (plus optional Bible Reading)
+// Daily Core Quests in Exact Chronological Order (plus optional Bible Reading)
 export const DAILY_QUESTS: QuestDefinition[] = [
   {
     id: 'morning_prayer',
@@ -52,6 +78,7 @@ export const DAILY_QUESTS: QuestDefinition[] = [
     type: 'boolean',
     baseXp: 15,
     category: 'faith',
+    timePeriod: 'morning',
     statTarget: 'faith',
     description: 'Dedicate the start of the day in prayer and gratitude.',
   },
@@ -62,6 +89,7 @@ export const DAILY_QUESTS: QuestDefinition[] = [
     type: 'boolean',
     baseXp: 2,
     category: 'nutrition',
+    timePeriod: 'morning',
     statTarget: 'nutrition',
     description: 'First 16-20oz glass upon waking to rehydrate.',
   },
@@ -72,6 +100,7 @@ export const DAILY_QUESTS: QuestDefinition[] = [
     type: 'boolean',
     baseXp: 5,
     category: 'nutrition',
+    timePeriod: 'morning',
     statTarget: 'nutrition',
     description: 'Daily 5g dose for strength and cognitive endurance.',
   },
@@ -82,6 +111,7 @@ export const DAILY_QUESTS: QuestDefinition[] = [
     type: 'boolean',
     baseXp: 0, // IMPORTANT: Informational, NEVER awards or deducts XP
     category: 'routine',
+    timePeriod: 'morning',
     description: 'Track caffeine intake (informational only — 0 XP).',
   },
   {
@@ -91,6 +121,7 @@ export const DAILY_QUESTS: QuestDefinition[] = [
     type: 'boolean',
     baseXp: 15,
     category: 'fitness',
+    timePeriod: 'morning',
     statTarget: 'fitness',
     description: 'Heavy lifting or dedicated training session.',
   },
@@ -101,6 +132,7 @@ export const DAILY_QUESTS: QuestDefinition[] = [
     type: 'boolean',
     baseXp: 2,
     category: 'nutrition',
+    timePeriod: 'morning',
     statTarget: 'nutrition',
     description: 'Post-workout hydration boost.',
   },
@@ -111,6 +143,7 @@ export const DAILY_QUESTS: QuestDefinition[] = [
     type: 'boolean',
     baseXp: 5,
     category: 'nutrition',
+    timePeriod: 'morning',
     statTarget: 'nutrition',
     description: 'High protein breakfast to fuel body & mind.',
   },
@@ -121,6 +154,7 @@ export const DAILY_QUESTS: QuestDefinition[] = [
     type: 'boolean',
     baseXp: 2,
     category: 'nutrition',
+    timePeriod: 'morning',
     statTarget: 'nutrition',
     description: 'Mid-morning hydration checkpoint.',
   },
@@ -131,6 +165,7 @@ export const DAILY_QUESTS: QuestDefinition[] = [
     type: 'boolean',
     baseXp: 3,
     category: 'hygiene',
+    timePeriod: 'morning',
     statTarget: 'discipline',
     description: 'Freshen up, groomed and locked in for execution.',
   },
@@ -141,6 +176,7 @@ export const DAILY_QUESTS: QuestDefinition[] = [
     type: 'boolean',
     baseXp: 5,
     category: 'nutrition',
+    timePeriod: 'morning',
     statTarget: 'nutrition',
     description: 'Sip delicious protein-infused brew.',
   },
@@ -150,7 +186,8 @@ export const DAILY_QUESTS: QuestDefinition[] = [
     title: 'Go to School / Work',
     type: 'boolean',
     baseXp: 5,
-    category: 'routine',
+    category: 'discipline',
+    timePeriod: 'afternoon',
     statTarget: 'discipline',
     allowNA: true, // Can be marked N/A on weekends/holidays without penalty
     description: 'Show up on time and locked in on obligations (or N/A on off-days).',
@@ -162,6 +199,7 @@ export const DAILY_QUESTS: QuestDefinition[] = [
     type: 'boolean',
     baseXp: 7,
     category: 'nutrition',
+    timePeriod: 'afternoon',
     statTarget: 'nutrition',
     description: 'Clean whole foods meal within nutritional targets.',
   },
@@ -172,6 +210,7 @@ export const DAILY_QUESTS: QuestDefinition[] = [
     type: 'boolean',
     baseXp: 2,
     category: 'nutrition',
+    timePeriod: 'afternoon',
     statTarget: 'nutrition',
     description: 'Afternoon hydration checkpoint.',
   },
@@ -181,7 +220,8 @@ export const DAILY_QUESTS: QuestDefinition[] = [
     title: 'Daily Focus',
     type: 'focus', // 1-5 selector
     baseXp: 0, // Calculated dynamically from 1-5 rating (0 to 8 pts)
-    category: 'mindset',
+    category: 'focus',
+    timePeriod: 'afternoon',
     statTarget: 'focus',
     description: 'Rate daily focus & productivity: 1 to 5.',
   },
@@ -192,56 +232,73 @@ export const DAILY_QUESTS: QuestDefinition[] = [
     type: 'boolean',
     baseXp: 2,
     category: 'nutrition',
+    timePeriod: 'evening',
     statTarget: 'nutrition',
     description: 'Evening hydration goal completed.',
   },
   {
-    id: 'prepare_for_tomorrow',
+    id: 'eat_healthy_dinner',
     order: 16,
+    title: 'Eat Healthy Dinner',
+    type: 'boolean',
+    baseXp: 7,
+    category: 'nutrition',
+    timePeriod: 'evening',
+    statTarget: 'nutrition',
+    description: 'Nutritious evening meal supporting your targets.',
+  },
+  {
+    id: 'prepare_for_tomorrow',
+    order: 17,
     title: 'Prepare for Tomorrow',
     type: 'boolean',
     baseXp: 5,
-    category: 'routine',
+    category: 'discipline',
+    timePeriod: 'evening',
     statTarget: 'discipline',
-    description: 'Lay out clothes, gym bag, and plan priorities.',
+    description: 'Lay out clothes, prep food, and plan priorities for tomorrow.',
   },
   {
     id: 'evening_prayer',
-    order: 17,
+    order: 18,
     title: 'Evening Prayer',
     type: 'boolean',
     baseXp: 15,
     category: 'faith',
+    timePeriod: 'evening',
     statTarget: 'faith',
     description: 'Give thanks, reflect on the day, and seek peace.',
   },
   {
     id: 'steps',
-    order: 18,
+    order: 19,
     title: 'Steps',
     type: 'numeric',
     baseXp: 0, // Calculated dynamically (up to 10 pts)
     category: 'fitness',
+    timePeriod: 'all_day',
     statTarget: 'fitness',
     description: 'Input exact step count. 10,000 step target.',
   },
   {
     id: 'sleep',
-    order: 19,
+    order: 20,
     title: 'Sleep',
     type: 'numeric',
     baseXp: 0, // Calculated dynamically (up to 10 pts)
     category: 'recovery',
+    timePeriod: 'evening',
     statTarget: 'fitness',
     description: 'Input actual hours slept last night.',
   },
   {
     id: 'bible_reading',
-    order: 20,
+    order: 21,
     title: 'Bible Reading / Scripture',
     type: 'boolean',
     baseXp: 5,
     category: 'faith',
+    timePeriod: 'all_day',
     statTarget: 'faith',
     isOptional: true,
     description: 'Intentional scripture reading and reflection.',
@@ -407,29 +464,203 @@ export const FOCUS_XP_MAP: Record<number, { xp: number; label: string }> = {
   5: { xp: 8, label: 'Locked in' },
 };
 
-// 20 Level Progression Curve calibrated for lifetime progression
-export const LEVELS: LevelDefinition[] = [
-  { level: 1, title: 'INITIATE', xpRequired: 0 },
-  { level: 2, title: 'STARTER', xpRequired: 150 },
-  { level: 3, title: 'RECRUIT', xpRequired: 350 },
-  { level: 4, title: 'DISCIPLINED', xpRequired: 650 },
-  { level: 5, title: 'CONSISTENT', xpRequired: 1050 },
-  { level: 6, title: 'FOCUSED', xpRequired: 1550 },
-  { level: 7, title: 'COMMITTED', xpRequired: 2150 },
-  { level: 8, title: 'LOCKED IN', xpRequired: 2850 },
-  { level: 9, title: 'RELENTLESS', xpRequired: 3650 },
-  { level: 10, title: 'UNSTOPPABLE', xpRequired: 4550 },
-  { level: 11, title: 'IRONCLAD', xpRequired: 5550 },
-  { level: 12, title: 'ASCENDANT', xpRequired: 6650 },
-  { level: 13, title: 'JUGGERNAUT', xpRequired: 7850 },
-  { level: 14, title: 'CHAMPION', xpRequired: 9150 },
-  { level: 15, title: 'MASTER', xpRequired: 10550 },
-  { level: 16, title: 'PARAGON', xpRequired: 12050 },
-  { level: 17, title: 'TITAN', xpRequired: 13650 },
-  { level: 18, title: 'MYTHIC', xpRequired: 15350 },
-  { level: 19, title: 'IMMORTAL', xpRequired: 17150 },
-  { level: 20, title: 'SEVEN ARCHON', xpRequired: 19000 },
+// Major Milestone Titles for the 100 Level System (Part XLVI - XLIX)
+export function getMilestoneRank(level: number): string {
+  if (level >= 100) return 'SEVEN';
+  if (level >= 90) return 'MASTERED';
+  if (level >= 80) return 'UNSTOPPABLE';
+  if (level >= 70) return 'ELITE';
+  if (level >= 60) return 'FORGED';
+  if (level >= 50) return 'RELENTLESS';
+  if (level >= 40) return 'FOCUSED';
+  if (level >= 30) return 'DISCIPLINED';
+  if (level >= 20) return 'CONSISTENT';
+  if (level >= 10) return 'COMMITTED';
+  return 'INITIATE';
+}
+
+// Exactly 100 Levels with an increasingly difficult calibrated XP curve (Part XLVI - L)
+function generate100Levels(): LevelDefinition[] {
+  const levels: LevelDefinition[] = [{ level: 1, title: 'INITIATE', xpRequired: 0 }];
+  let cumulative = 0;
+  for (let l = 2; l <= 100; l++) {
+    // Calibrated so Level 2 requires ~380 XP (several good days), Level 10 ~7,200 XP, Level 100 ~450k XP (years)
+    const delta = Math.round(350 + (l - 2) * 85 + Math.pow(l - 1, 1.65) * 18);
+    cumulative += delta;
+    levels.push({
+      level: l,
+      title: getMilestoneRank(l),
+      xpRequired: cumulative,
+    });
+  }
+  return levels;
+}
+
+export const LEVELS: LevelDefinition[] = generate100Levels();
+
+// Weekly Goals Pool (Part XXV - XXVII)
+export const WEEKLY_GOALS_POOL: {
+  id: import('../types').WeeklyGoalType;
+  title: string;
+  subtitle: string;
+  description: string;
+  xpReward: number;
+  targetValue: number;
+  unit: string;
+  icon: string;
+  requiresConfig?: 'protein' | 'gym' | 'prayer';
+}[] = [
+  {
+    id: 'gym_week',
+    title: 'Gym Week',
+    subtitle: 'Physical discipline',
+    description: 'Complete 5 gym sessions this week.',
+    xpReward: 75,
+    targetValue: 5,
+    unit: 'sessions',
+    icon: 'Dumbbell',
+    requiresConfig: 'gym',
+  },
+  {
+    id: '70k_week',
+    title: '70K Week',
+    subtitle: 'Daily motion',
+    description: 'Accumulate 70,000 total steps across 7 days.',
+    xpReward: 75,
+    targetValue: 70000,
+    unit: 'steps',
+    icon: 'Footprints',
+  },
+  {
+    id: 'diamond_week',
+    title: 'Diamond Week',
+    subtitle: 'Pure execution',
+    description: 'Earn 3 Perfect Days (100% Core Performance).',
+    xpReward: 85,
+    targetValue: 3,
+    unit: 'days',
+    icon: 'Gem',
+  },
+  {
+    id: 'seven_strong',
+    title: 'Seven Strong',
+    subtitle: 'Unbroken week',
+    description: 'Conquer all 7 out of 7 days in this cycle.',
+    xpReward: 100,
+    targetValue: 7,
+    unit: 'days',
+    icon: 'Flame',
+  },
+  {
+    id: 'consistency',
+    title: 'Consistency',
+    subtitle: 'High standard',
+    description: 'Conquer at least 6 out of 7 days this week.',
+    xpReward: 75,
+    targetValue: 6,
+    unit: 'days',
+    icon: 'ShieldCheck',
+  },
+  {
+    id: 'first_things_first',
+    title: 'First Things First',
+    subtitle: 'Morning foundation',
+    description: 'Complete Morning Prayer on all 7 days.',
+    xpReward: 60,
+    targetValue: 7,
+    unit: 'days',
+    icon: 'Sun',
+    requiresConfig: 'prayer',
+  },
+  {
+    id: 'bookends',
+    title: 'Bookends',
+    subtitle: 'Morning & evening',
+    description: 'Complete Morning + Evening Prayer on 6 days.',
+    xpReward: 70,
+    targetValue: 6,
+    unit: 'days',
+    icon: 'BookOpen',
+    requiresConfig: 'prayer',
+  },
+  {
+    id: 'locked_in_week',
+    title: 'Locked In Week',
+    subtitle: 'Elite focus',
+    description: 'Maintain average Core Performance ≥ 85%.',
+    xpReward: 80,
+    targetValue: 85,
+    unit: '%',
+    icon: 'Target',
+  },
+  {
+    id: 'focus_week',
+    title: 'Focus Week',
+    subtitle: 'Mental clarity',
+    description: 'Average Daily Focus rating ≥ 4.0 across week.',
+    xpReward: 65,
+    targetValue: 4,
+    unit: 'rating',
+    icon: 'Zap',
+  },
+  {
+    id: 'side_hustle',
+    title: 'Side Hustle',
+    subtitle: 'Going above & beyond',
+    description: 'Complete 10 total Side Quests this week.',
+    xpReward: 60,
+    targetValue: 10,
+    unit: 'quests',
+    icon: 'CheckCircle2',
+  },
+  {
+    id: 'protein_week',
+    title: 'Protein Week',
+    subtitle: 'Fuel properly',
+    description: 'Hit your daily Protein target on 5 days.',
+    xpReward: 75,
+    targetValue: 5,
+    unit: 'days',
+    icon: 'Utensils',
+    requiresConfig: 'protein',
+  },
 ];
+
+export function getWeeklyGoalForCycle(
+  cycleStartDate: string,
+  eligibleGoals = WEEKLY_GOALS_POOL
+) {
+  if (!eligibleGoals.length) return WEEKLY_GOALS_POOL[1];
+  let hash = 0;
+  for (let i = 0; i < cycleStartDate.length; i++) {
+    hash = (hash * 31 + cycleStartDate.charCodeAt(i)) >>> 0;
+  }
+  const index = hash % eligibleGoals.length;
+  return eligibleGoals[index];
+}
+
+// Default Body Measurement Types (Part XXXVI)
+export const BODY_MEASUREMENT_TYPES: { type: import('../types').BodyMeasurementType; label: string }[] = [
+  { type: 'waist', label: 'Waist' },
+  { type: 'chest', label: 'Chest' },
+  { type: 'left_arm', label: 'Left Arm' },
+  { type: 'right_arm', label: 'Right Arm' },
+  { type: 'hips', label: 'Hips' },
+  { type: 'left_thigh', label: 'Left Thigh' },
+  { type: 'right_thigh', label: 'Right Thigh' },
+  { type: 'neck', label: 'Neck' },
+];
+
+// Default Nutrition Settings (Part XLII - XLV)
+export const DEFAULT_NUTRITION_SETTINGS: import('../types').NutritionSettings = {
+  id: 'current',
+  caloriesTarget: 1950,
+  proteinTarget: 180,
+  carbsTarget: 210,
+  fatTarget: 70,
+  waterTargetOz: 80,
+};
+
 
 export const INITIAL_ACHIEVEMENTS: Achievement[] = [
   // Consistency

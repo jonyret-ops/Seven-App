@@ -11,7 +11,7 @@ export const WeightEntryModal: React.FC<WeightEntryModalProps> = ({ isOpen, onCl
   const { addWeightEntry, activeTodayDate, weightStats, currentArc, profile } = useApp();
   const unit = profile.weightUnit || 'lb';
   const [weightInput, setWeightInput] = useState<string>(
-    weightStats.currentWeight > 0 ? String(weightStats.currentWeight) : ''
+    weightStats.currentWeight > 0 ? String(weightStats.currentWeight) : '234.8'
   );
   const [dateInput, setDateInput] = useState<string>(activeTodayDate);
   const [noteInput, setNoteInput] = useState<string>('');
@@ -39,16 +39,16 @@ export const WeightEntryModal: React.FC<WeightEntryModalProps> = ({ isOpen, onCl
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
-      <div className="bg-[#14171D] rounded-3xl w-full max-w-sm p-5 border border-white/[0.1] shadow-2xl text-white">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in select-none">
+      <div className="bg-white rounded-3xl w-full max-w-sm p-6 border border-slate-100 shadow-2xl text-slate-900">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2.5">
-            <div className="flex items-center justify-center w-10 h-10 rounded-2xl bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+            <div className="flex items-center justify-center w-10 h-10 rounded-2xl bg-blue-50 text-blue-600 border border-blue-100">
               <Scale className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-base font-black text-white tracking-tight">Record Weigh-In</h3>
-              <p className="text-[11px] text-zinc-400">
+              <h3 className="text-base font-black text-slate-900 tracking-tight">Record Weigh-In</h3>
+              <p className="text-[11px] text-slate-400 font-medium">
                 {currentArc.goalWeight > 0 ? `Target: ${currentArc.goalWeight} ${unit}` : 'Tracking baseline'}
               </p>
             </div>
@@ -56,21 +56,21 @@ export const WeightEntryModal: React.FC<WeightEntryModalProps> = ({ isOpen, onCl
           <button
             type="button"
             onClick={onClose}
-            className="w-8 h-8 rounded-xl bg-zinc-800 flex items-center justify-center text-zinc-400 hover:text-white transition-colors cursor-pointer"
+            className="w-8 h-8 rounded-xl bg-slate-100 flex items-center justify-center text-slate-500 hover:text-slate-800 transition-colors cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {error && (
-          <div className="mb-4 p-3 rounded-xl bg-rose-500/15 text-rose-300 text-xs font-semibold border border-rose-500/30">
+          <div className="mb-4 p-3 rounded-xl bg-rose-50 text-rose-600 text-xs font-semibold border border-rose-200">
             {error}
           </div>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-3.5">
           <div>
-            <label className="block text-[10px] font-black text-zinc-400 uppercase tracking-wider mb-1">
+            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
               Weight ({unit.toUpperCase()})
             </label>
             <div className="relative">
@@ -83,17 +83,17 @@ export const WeightEntryModal: React.FC<WeightEntryModalProps> = ({ isOpen, onCl
                   setWeightInput(e.target.value);
                   setError('');
                 }}
-                placeholder={unit === 'kg' ? '85.0' : '185.0'}
-                className="w-full h-12 px-4 bg-zinc-900 border border-zinc-700/80 rounded-2xl text-xl font-black text-white focus:outline-none focus:border-emerald-400 transition-all"
+                placeholder={unit === 'kg' ? '85.0' : '234.8'}
+                className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-2xl text-xl font-black text-slate-900 focus:outline-none focus:border-blue-500 transition-all"
               />
-              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-zinc-400 uppercase">
+              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400 uppercase">
                 {unit}
               </span>
             </div>
           </div>
 
           <div>
-            <label className="block text-[10px] font-black text-zinc-400 uppercase tracking-wider mb-1">
+            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
               Weigh-In Date
             </label>
             <input
@@ -101,12 +101,12 @@ export const WeightEntryModal: React.FC<WeightEntryModalProps> = ({ isOpen, onCl
               required
               value={dateInput}
               onChange={(e) => setDateInput(e.target.value)}
-              className="w-full h-10 px-3 bg-zinc-900 border border-zinc-700/80 rounded-xl text-xs font-semibold text-zinc-200 focus:outline-none focus:border-emerald-400 transition-all"
+              className="w-full h-10 px-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:outline-none focus:border-blue-500 transition-all"
             />
           </div>
 
           <div>
-            <label className="block text-[10px] font-black text-zinc-400 uppercase tracking-wider mb-1">
+            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
               Note (Optional)
             </label>
             <input
@@ -114,7 +114,7 @@ export const WeightEntryModal: React.FC<WeightEntryModalProps> = ({ isOpen, onCl
               value={noteInput}
               onChange={(e) => setNoteInput(e.target.value)}
               placeholder="e.g. Morning fasted weigh-in"
-              className="w-full h-10 px-3 bg-zinc-900 border border-zinc-700/80 rounded-xl text-xs font-medium text-zinc-300 placeholder:text-zinc-600 focus:outline-none focus:border-emerald-400 transition-all"
+              className="w-full h-10 px-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-blue-500 transition-all"
             />
           </div>
 
@@ -122,13 +122,13 @@ export const WeightEntryModal: React.FC<WeightEntryModalProps> = ({ isOpen, onCl
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 h-11 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-bold transition-all cursor-pointer"
+              className="flex-1 h-11 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all cursor-pointer"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="flex-1 h-11 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-black shadow-xs transition-all cursor-pointer"
+              className="flex-1 h-11 rounded-2xl bg-[#111827] hover:bg-black text-white text-xs font-bold shadow-md transition-all cursor-pointer"
             >
               Save Weight
             </button>

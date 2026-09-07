@@ -4,37 +4,59 @@ import {
   LEVELS, 
   SIDE_QUESTS, 
   BONUS_OBJECTIVES_POOL,
+  DEFAULT_WEEKLY_SCHEDULE,
+  WEEKLY_GOALS_POOL,
+  BODY_MEASUREMENT_TYPES,
   getDailyBonusObjective 
 } from '../constants';
 import { 
   Achievement, 
+  BodyMeasurementEntry,
+  BodyMeasurementSummary,
+  BodyMeasurementType,
   CharacterStats, 
   DailyLog, 
+  DailyMacroSummary,
   DailyRank, 
+  DayOfWeek,
   LevelDefinition, 
+  MealLog,
+  NutritionSettings,
   StatusSnapshot, 
   StatusTitle, 
   StreakStats, 
+  UserProfile,
   WeightEntry, 
   WeightStats, 
+  WeeklyGoalDefinition,
   WeeklyReport 
 } from '../types';
 
 /**
  * Calculates step XP based on exact requirements:
- * < 4,000 = 0 XP
- * 4,000–5,999 = 2 XP
- * 6,000–7,499 = 4 XP
- * 7,500–8,999 = 6 XP
- * 9,000–9,999 = 8 XP
- * 10,000+ = 10 XP
+ * < 5,000 = 0 XP
+ * 5,000–7,999 = 2 XP
+ * 8,000–9,999 = 4 XP
+ * 10,000–11,999 = 10 XP
+ * 12,000+ = 12 XP total (10 Core + 2 Extra Mile Bonus)
  */
 export function calculateStepXp(steps: number): number {
+  if (steps >= 12000) return 12;
   if (steps >= 10000) return 10;
-  if (steps >= 9000) return 8;
-  if (steps >= 7500) return 6;
-  if (steps >= 6000) return 4;
-  if (steps >= 4000) return 2;
+  if (steps >= 8000) return 4;
+  if (steps >= 5000) return 2;
+  return 0;
+}
+
+export function calculateStepCoreXp(steps: number): number {
+  if (steps >= 10000) return 10;
+  if (steps >= 8000) return 4;
+  if (steps >= 5000) return 2;
+  return 0;
+}
+
+export function calculateStepBonusXp(steps: number): number {
+  if (steps >= 12000) return 2;
   return 0;
 }
 
@@ -94,6 +116,139 @@ export function getDaysDifference(fromStr: string, toStr: string): number {
 }
 
 /**
+ * Human-readable full date, e.g. "Sep 6, 2026"
+ */
+export function formatHumanDate(dateStr: string): string {
+  if (!dateStr) return '';
+  const d = parseDate(dateStr);
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+/**
+ * Human-readable short date, e.g. "Sep 6"
+ */
+export function formatHumanDateShort(dateStr: string): string {
+  if (!dateStr) return '';
+  const d = parseDate(dateStr);
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+/**
+ * Returns ordinal suffix for a number: 1st, 2nd, 3rd, 4th, 11th, 12th, 13th, 21st, etc.
+ */
+export function getOrdinalSuffix(n: number): string {
+  const v = n % 100;
+  if (v >= 11 && v <= 13) return `${n}th`;
+  const lastDigit = n % 10;
+  if (lastDigit === 1) return `${n}st`;
+  if (lastDigit === 2) return `${n}nd`;
+  if (lastDigit === 3) return `${n}rd`;
+  return `${n}th`;
+}
+
+/**
+ * Formats an ISO date (YYYY-MM-DD) as natural readable ordinal date: "September 7th, 2026" or "Mon, Sep 7th, 2026"
+ */
+export function formatOrdinalDate(
+  dateStr: string, 
+  options?: { includeWeekday?: boolean; shortMonth?: boolean; omitYear?: boolean }
+): string {
+  if (!dateStr) return '';
+  try {
+    const parts = dateStr.split('-');
+    if (parts.length === 3) {
+      const year = parseInt(parts[0], 10);
+      const month = parseInt(parts[1], 10) - 1;
+      const day = parseInt(parts[2], 10);
+      const date = new Date(year, month, day);
+      const weekdayStr = options?.includeWeekday 
+        ? date.toLocaleDateString('en-US', { weekday: options.shortMonth ? 'short' : 'long' }) + ', ' 
+        : '';
+      const monthName = date.toLocaleDateString('en-US', { month: options?.shortMonth ? 'short' : 'long' });
+      const yearStr = options?.omitYear ? '' : `, ${year}`;
+      return `${weekdayStr}${monthName} ${getOrdinalSuffix(day)}${yearStr}`;
+    }
+  } catch {}
+  return dateStr;
+}
+
+/**
+ * Human-readable date range, e.g. "Sep 6 – Dec 5, 2026"
+ */
+export function formatHumanDateRange(startDateStr: string, endDateStr: string): string {
+  if (!startDateStr || !endDateStr) return '';
+  const start = parseDate(startDateStr);
+  const end = parseDate(endDateStr);
+
+  const startMonth = start.toLocaleDateString('en-US', { month: 'short' });
+  const startDay = start.getDate();
+  const startYear = start.getFullYear();
+
+  const endMonth = end.toLocaleDateString('en-US', { month: 'short' });
+  const endDay = end.getDate();
+  const endYear = end.getFullYear();
+
+  if (startYear === endYear) {
+    if (startMonth === endMonth) {
+      return `${startMonth} ${startDay} – ${endDay}, ${startYear}`;
+    }
+    return `${startMonth} ${startDay} – ${endMonth} ${endDay}, ${startYear}`;
+  }
+  return `${startMonth} ${startDay}, ${startYear} – ${endMonth} ${endDay}, ${endYear}`;
+}
+
+/**
+ * Checks if a specific calendar date is a Rest Day:
+ * 1. If in trainAnywayDates -> false (Active Day override)
+ * 2. If in restDayOverrides -> true (One-off Rest Day)
+ * 3. According to weekly schedule (e.g. Sunday = 'rest')
+ */
+export function isRestDay(dateStr: string, profile?: Partial<UserProfile> | null): boolean {
+  if (!profile) return false;
+  const trainAnyway = profile.trainAnywayDates || [];
+  if (trainAnyway.includes(dateStr)) return false;
+
+  const restOverrides = profile.restDayOverrides || [];
+  if (restOverrides.includes(dateStr)) return true;
+
+  const schedule = profile.weeklySchedule || DEFAULT_WEEKLY_SCHEDULE;
+  const d = parseDate(dateStr);
+  const dayIndex = d.getDay(); // 0 is Sunday, 1 is Monday ... 6 is Saturday
+  const dayKeyMap: Record<number, DayOfWeek> = {
+    0: 'sunday',
+    1: 'monday',
+    2: 'tuesday',
+    3: 'wednesday',
+    4: 'thursday',
+    5: 'friday',
+    6: 'saturday',
+  };
+  const dayKey = dayKeyMap[dayIndex];
+  return schedule[dayKey] === 'rest';
+}
+
+/**
+ * Counts the number of eligible Active Days between two dates
+ */
+export function countEligibleActiveDays(
+  startDateStr: string,
+  endDateStr: string,
+  profile?: Partial<UserProfile> | null
+): number {
+  if (!startDateStr || !endDateStr) return 0;
+  const totalDays = getDaysDifference(startDateStr, endDateStr) + 1;
+  if (totalDays <= 0) return 0;
+  let activeCount = 0;
+  for (let i = 0; i < totalDays; i++) {
+    const curDate = addDays(startDateStr, i);
+    if (!isRestDay(curDate, profile)) {
+      activeCount++;
+    }
+  }
+  return activeCount;
+}
+
+/**
  * Core Performance % vs XP:
  * Core Performance measures completion of APPLICABLE Core Daily Quest points:
  * Core Performance % = (Core Points Earned) / (Core Points Available)
@@ -122,6 +277,7 @@ export function calculateDailyMetrics(
 
   let corePointsAvailable = 0;
   let corePointsEarned = 0;
+  let bonusXp = 0;
 
   // 1. Evaluate Core Quests
   for (const quest of DAILY_QUESTS) {
@@ -144,7 +300,9 @@ export function calculateDailyMetrics(
       if (quest.id === 'steps') {
         corePointsAvailable += 10; // Max step score is 10 pts
         if (log.steps) {
-          corePointsEarned += calculateStepXp(log.steps);
+          corePointsEarned += calculateStepCoreXp(log.steps);
+          // Bonus steps (12,000+) are added to bonusXp and do not inflate Core Performance
+          bonusXp += calculateStepBonusXp(log.steps);
         }
       } else if (quest.id === 'sleep') {
         corePointsAvailable += 10; // Max sleep score is 10 pts
@@ -160,12 +318,7 @@ export function calculateDailyMetrics(
     ? Math.round((corePointsEarned / corePointsAvailable) * 100) 
     : 0;
 
-  // Perfect day is 100% of all applicable Core points
-  const isPerfectDay = corePerformancePercent === 100 && corePointsAvailable > 0;
-  const isConqueredDay = corePerformancePercent >= conqueredThresholdPercent;
-
   // 2. Evaluate Side Quests (Bonus XP only)
-  let bonusXp = 0;
   const sideIds = new Set(log.completedSideQuestIds || []);
   for (const side of SIDE_QUESTS) {
     if (sideIds.has(side.id)) {
@@ -184,15 +337,19 @@ export function calculateDailyMetrics(
   const baseXp = corePointsEarned;
   const totalXp = baseXp + bonusXp;
 
+  // Universal rule: 100 XP = Perfect Day (achieved whenever user earns at least 100 XP)
+  const isPerfectDay = totalXp >= 100 || (corePerformancePercent === 100 && corePointsAvailable > 0);
+  const isConqueredDay = isPerfectDay || corePerformancePercent >= conqueredThresholdPercent;
+
   // Daily classification rank
   let dailyRank: DailyRank = 'ROUGH DAY';
   if (isPerfectDay) {
     dailyRank = 'PERFECT DAY 💎';
   } else if (isConqueredDay) {
     dailyRank = 'DAY CONQUERED';
-  } else if (corePerformancePercent >= 75) {
+  } else if (totalXp >= 75 || corePerformancePercent >= 75) {
     dailyRank = 'STRONG DAY';
-  } else if (corePerformancePercent >= 50) {
+  } else if (totalXp >= 50 || corePerformancePercent >= 50) {
     dailyRank = 'KEPT MOVING';
   } else {
     dailyRank = 'ROUGH DAY';
@@ -285,75 +442,220 @@ export function calculateLevel(totalCumulativeXp: number): {
 }
 
 /**
- * 7-Day Current Form / Status:
- * Based on the last 7 COMPLETED days (excluding the current in-progress day).
+ * 14-Day Current Form / Status (Part LI - LV):
+ * Based on the last 14 COMPLETED days (excluding the current in-progress day & future dates).
  * Ladder:
- * - STARTING OUT: < 50% or < 3 days of data
- * - BUILDING MOMENTUM: 50–64%
- * - CONSISTENT: 65–74%
- * - DISCIPLINED: 75–84%
- * - LOCKED IN: 85–94%
- * - UNSTOPPABLE: 95–100%
+ * - 97–100: UNSTOPPABLE
+ * - 90–96: LOCKED IN
+ * - 80–89: DIALED IN
+ * - 70–79: SOLID
+ * - 55–69: GETTING THERE
+ * - 40–54: LACKING
+ * - 0–39: FALLING OFF
+ * For new users (< 14 completed days), status is marked BUILDING STATUS with provisional form score.
  */
 export function calculateStatusSnapshot(allLogs: DailyLog[], todayDateStr: string): StatusSnapshot {
-  const mapByDate = new Map<string, DailyLog>();
-  allLogs.forEach(l => mapByDate.set(l.date, l));
+  // Collect completed days strictly prior to today, sorted newest first
+  const pastLogs = allLogs
+    .filter(l => l.date < todayDateStr && (l.totalXp > 0 || (l.completedQuestIds && l.completedQuestIds.length > 0) || (l.corePointsEarned ?? 0) > 0))
+    .sort((a, b) => b.date.localeCompare(a.date))
+    .slice(0, 14);
 
-  // Collect the last 7 completed days preceding today
-  const pastDays: DailyLog[] = [];
-  for (let i = 1; i <= 7; i++) {
-    const dStr = addDays(todayDateStr, -i);
-    const log = mapByDate.get(dStr);
-    if (log && (log.totalXp > 0 || log.completedQuestIds.length > 0)) {
-      pastDays.push(log);
-    }
-  }
-
-  if (pastDays.length < 2) {
+  if (pastLogs.length === 0) {
     return {
-      currentStatus: 'STARTING OUT',
+      currentStatus: 'BUILDING STATUS',
       sevenDayCorePerformance: 0,
-      previousStatus: 'STARTING OUT',
+      previousStatus: 'BUILDING STATUS',
       statusProgress: 0,
-      completedDaysCount: pastDays.length,
+      completedDaysCount: 0,
     };
   }
 
+  // Average core performance across available completed days (up to 14)
   const avgPerf = Math.round(
-    pastDays.reduce((sum, l) => sum + (l.corePerformancePercent ?? 0), 0) / pastDays.length
+    pastLogs.reduce((sum, l) => sum + (l.corePerformancePercent ?? 0), 0) / pastLogs.length
   );
 
-  let currentStatus: StatusTitle = 'STARTING OUT';
+  let formStatus: StatusTitle = 'BUILDING STATUS';
   let statusProgress = 0;
 
-  if (avgPerf >= 95) {
-    currentStatus = 'UNSTOPPABLE';
+  if (avgPerf >= 97) {
+    formStatus = 'UNSTOPPABLE';
     statusProgress = 100;
-  } else if (avgPerf >= 85) {
-    currentStatus = 'LOCKED IN';
-    statusProgress = Math.round(((avgPerf - 85) / 10) * 100);
-  } else if (avgPerf >= 75) {
-    currentStatus = 'DISCIPLINED';
-    statusProgress = Math.round(((avgPerf - 75) / 10) * 100);
-  } else if (avgPerf >= 65) {
-    currentStatus = 'CONSISTENT';
-    statusProgress = Math.round(((avgPerf - 65) / 10) * 100);
-  } else if (avgPerf >= 50) {
-    currentStatus = 'BUILDING MOMENTUM';
-    statusProgress = Math.round(((avgPerf - 50) / 15) * 100);
+  } else if (avgPerf >= 90) {
+    formStatus = 'LOCKED IN';
+    statusProgress = Math.round(((avgPerf - 90) / 7) * 100);
+  } else if (avgPerf >= 80) {
+    formStatus = 'DIALED IN';
+    statusProgress = Math.round(((avgPerf - 80) / 10) * 100);
+  } else if (avgPerf >= 70) {
+    formStatus = 'SOLID';
+    statusProgress = Math.round(((avgPerf - 70) / 10) * 100);
+  } else if (avgPerf >= 55) {
+    formStatus = 'GETTING THERE';
+    statusProgress = Math.round(((avgPerf - 55) / 15) * 100);
+  } else if (avgPerf >= 40) {
+    formStatus = 'LACKING';
+    statusProgress = Math.round(((avgPerf - 40) / 15) * 100);
   } else {
-    currentStatus = 'STARTING OUT';
-    statusProgress = Math.round((avgPerf / 50) * 100);
+    formStatus = 'FALLING OFF';
+    statusProgress = Math.round((avgPerf / 40) * 100);
   }
 
+  const isBuilding = pastLogs.length < 14;
+
   return {
-    currentStatus,
+    currentStatus: isBuilding ? formStatus : formStatus,
     sevenDayCorePerformance: avgPerf,
-    previousStatus: 'CONSISTENT',
+    previousStatus: formStatus,
     statusProgress: Math.min(100, Math.max(0, statusProgress)),
-    completedDaysCount: pastDays.length,
+    completedDaysCount: pastLogs.length,
   };
 }
+
+/**
+ * Calculates Body Measurement summaries across all measurement types (Part XXXVI - XXXVIII)
+ */
+export function calculateBodyMeasurementSummaries(
+  entries: BodyMeasurementEntry[]
+): BodyMeasurementSummary[] {
+  return BODY_MEASUREMENT_TYPES.map(({ type, label }) => {
+    const typeEntries = entries
+      .filter(e => e.measurementType === type)
+      .sort((a, b) => a.date.localeCompare(b.date)); // oldest to newest
+
+    if (typeEntries.length === 0) {
+      return {
+        type,
+        label,
+        latestValue: null,
+        baselineValue: null,
+        change: null,
+        unit: 'in',
+        latestDate: '',
+      };
+    }
+
+    const baseline = typeEntries[0].value;
+    const latest = typeEntries[typeEntries.length - 1].value;
+    const change = Math.round((latest - baseline) * 10) / 10;
+
+    return {
+      type,
+      label,
+      latestValue: latest,
+      baselineValue: baseline,
+      change,
+      unit: typeEntries[typeEntries.length - 1].unit || 'in',
+      latestDate: typeEntries[typeEntries.length - 1].date,
+    };
+  });
+}
+
+/**
+ * Calculates daily macro summary from meal logs for a date (Part XLII)
+ */
+export function calculateDailyMacroSummary(
+  mealLogs: MealLog[],
+  dateStr: string,
+  settings: NutritionSettings
+): DailyMacroSummary {
+  const dayMeals = mealLogs.filter(m => m.date === dateStr);
+  const calories = dayMeals.reduce((acc, m) => acc + (m.calories || 0), 0);
+  const protein = dayMeals.reduce((acc, m) => acc + (m.protein || 0), 0);
+  const carbs = dayMeals.reduce((acc, m) => acc + (m.carbs || 0), 0);
+  const fat = dayMeals.reduce((acc, m) => acc + (m.fat || 0), 0);
+
+  const proteinPercent = settings.proteinTarget && settings.proteinTarget > 0 
+    ? Math.min(100, Math.round((protein / settings.proteinTarget) * 100)) 
+    : 0;
+  const carbsPercent = settings.carbsTarget && settings.carbsTarget > 0 
+    ? Math.min(100, Math.round((carbs / settings.carbsTarget) * 100)) 
+    : 0;
+  const fatPercent = settings.fatTarget && settings.fatTarget > 0 
+    ? Math.min(100, Math.round((fat / settings.fatTarget) * 100)) 
+    : 0;
+
+  return {
+    calories,
+    protein,
+    carbs,
+    fat,
+    caloriesTarget: settings.caloriesTarget,
+    proteinTarget: settings.proteinTarget,
+    carbsTarget: settings.carbsTarget,
+    fatTarget: settings.fatTarget,
+    proteinPercent,
+    carbsPercent,
+    fatPercent,
+  };
+}
+
+/**
+ * Calculates Weekly Goal progress automatically from existing data (Part XXVIII)
+ */
+export function calculateWeeklyGoalProgress(
+  goalDef: WeeklyGoalDefinition,
+  cycleDailyLogs: DailyLog[],
+  cycleMealLogs: MealLog[],
+  settings?: NutritionSettings
+): number {
+  switch (goalDef.id) {
+    case 'gym_week': {
+      return cycleDailyLogs.filter(l => l.completedQuestIds && l.completedQuestIds.includes('hit_the_gym')).length;
+    }
+    case '70k_week': {
+      return cycleDailyLogs.reduce((acc, l) => acc + (l.steps || 0), 0);
+    }
+    case 'diamond_week': {
+      return cycleDailyLogs.filter(l => l.isPerfectDay).length;
+    }
+    case 'seven_strong':
+    case 'consistency': {
+      return cycleDailyLogs.filter(l => l.isConqueredDay).length;
+    }
+    case 'first_things_first': {
+      return cycleDailyLogs.filter(l => l.completedQuestIds && l.completedQuestIds.includes('morning_prayer')).length;
+    }
+    case 'bookends': {
+      return cycleDailyLogs.filter(l => 
+        l.completedQuestIds && 
+        l.completedQuestIds.includes('morning_prayer') && 
+        l.completedQuestIds.includes('evening_prayer')
+      ).length;
+    }
+    case 'locked_in_week': {
+      if (cycleDailyLogs.length === 0) return 0;
+      const avg = Math.round(cycleDailyLogs.reduce((acc, l) => acc + (l.corePerformancePercent || 0), 0) / cycleDailyLogs.length);
+      return avg;
+    }
+    case 'focus_week': {
+      const rated = cycleDailyLogs.filter(l => (l.focusRating || 0) > 0);
+      if (rated.length === 0) return 0;
+      const avg = Math.round((rated.reduce((acc, l) => acc + (l.focusRating || 0), 0) / rated.length) * 10) / 10;
+      return avg;
+    }
+    case 'side_hustle': {
+      return cycleDailyLogs.reduce((acc, l) => acc + ((l.completedSideQuestIds || []).length), 0);
+    }
+    case 'protein_week': {
+      const target = settings?.proteinTarget || 180;
+      // Group meal logs by date
+      const daysMeetingProtein = new Set<string>();
+      const byDate: Record<string, number> = {};
+      cycleMealLogs.forEach(m => {
+        byDate[m.date] = (byDate[m.date] || 0) + (m.protein || 0);
+        if (byDate[m.date] >= target) {
+          daysMeetingProtein.add(m.date);
+        }
+      });
+      return daysMeetingProtein.size;
+    }
+    default:
+      return 0;
+  }
+}
+
 
 /**
  * Character Stats (6 stats, normalized 0–100 rolling 7-day consistency scores)
@@ -457,7 +759,8 @@ export function calculateCharacterStats(allLogs: DailyLog[], todayDateStr: strin
 export function calculateStreaks(
   allLogs: DailyLog[], 
   todayDateStr: string,
-  conqueredThresholdPercent = 85
+  conqueredThresholdPercent = 85,
+  profile?: Partial<UserProfile> | null
 ): StreakStats {
   const mapByDate = new Map<string, DailyLog>();
   for (const log of allLogs) {
@@ -477,6 +780,18 @@ export function calculateStreaks(
     }
   }
 
+  // If no successful/conquered days have been logged, both streaks are strictly 0
+  if (totalSuccessfulDays === 0) {
+    return {
+      currentStreak: 0,
+      longestStreak: 0,
+      totalSuccessfulDays: 0,
+      totalPerfectDays: 0,
+      arcSuccessfulDays: 0,
+      arcPerfectDays: 0,
+    };
+  }
+
   // Calculate current streak
   let currentStreak = 0;
   const todayLog = mapByDate.get(todayDateStr);
@@ -491,18 +806,24 @@ export function calculateStreaks(
       if (isConq) {
         currentStreak++;
         checkDate = addDays(checkDate, -1);
+      } else if (isRestDay(checkDate, profile)) {
+        // Rest Day bridges the streak seamlessly
+        checkDate = addDays(checkDate, -1);
       } else {
         break;
       }
     }
   } else {
-    // Today is in progress -> check backward from yesterday
+    // Today is either in progress or a Rest Day -> check backward from yesterday
     let checkDate = addDays(todayDateStr, -1);
     while (true) {
       const pastLog = mapByDate.get(checkDate);
       const isConq = pastLog && (pastLog.isConqueredDay || pastLog.corePerformancePercent >= conqueredThresholdPercent || pastLog.totalXp >= 100);
       if (isConq) {
         currentStreak++;
+        checkDate = addDays(checkDate, -1);
+      } else if (isRestDay(checkDate, profile)) {
+        // Rest Day bridges the streak seamlessly
         checkDate = addDays(checkDate, -1);
       } else {
         break;
@@ -519,8 +840,28 @@ export function calculateStreaks(
   for (const log of sortedLogs) {
     const isConq = log.isConqueredDay || log.corePerformancePercent >= conqueredThresholdPercent || log.totalXp >= 100;
     if (isConq) {
-      if (prevSuccessDate && getDaysDifference(prevSuccessDate, log.date) === 1) {
-        runningStreak++;
+      if (prevSuccessDate) {
+        const diff = getDaysDifference(prevSuccessDate, log.date);
+        if (diff === 1) {
+          runningStreak++;
+        } else if (diff > 1) {
+          // Check if all intermediate days were Rest Days
+          let onlyRestDaysInBetween = true;
+          for (let step = 1; step < diff; step++) {
+            const intermediate = addDays(prevSuccessDate, step);
+            if (!isRestDay(intermediate, profile)) {
+              onlyRestDaysInBetween = false;
+              break;
+            }
+          }
+          if (onlyRestDaysInBetween) {
+            runningStreak++;
+          } else {
+            runningStreak = 1;
+          }
+        } else {
+          runningStreak = 1;
+        }
       } else {
         runningStreak = 1;
       }
@@ -529,8 +870,12 @@ export function calculateStreaks(
         longestStreak = runningStreak;
       }
     } else {
-      runningStreak = 0;
-      prevSuccessDate = null;
+      // If it's a recorded day that was NOT conquered:
+      // If it was a Rest Day, don't reset runningStreak!
+      if (!isRestDay(log.date, profile)) {
+        runningStreak = 0;
+        prevSuccessDate = null;
+      }
     }
   }
 

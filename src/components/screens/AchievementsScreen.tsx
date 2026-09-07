@@ -22,6 +22,7 @@ import {
   Pill
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { formatOrdinalDate } from '../../lib/calculations';
 
 export const AchievementsScreen: React.FC = () => {
   const { achievements } = useApp();
@@ -39,7 +40,7 @@ export const AchievementsScreen: React.FC = () => {
 
   // Icon lookup map
   const getIcon = (iconName: string, isUnlocked: boolean) => {
-    const props = { className: `w-5 h-5 ${isUnlocked ? 'stroke-[2.5]' : 'stroke-[1.5]'}` };
+    const props = { className: `w-5 h-5 ${isUnlocked ? 'stroke-[2.5]' : 'stroke-[1.8]'}` };
     switch (iconName) {
       case 'Sparkles': return <Sparkles {...props} />;
       case 'Flame': return <Flame {...props} />;
@@ -63,76 +64,72 @@ export const AchievementsScreen: React.FC = () => {
   };
 
   return (
-    <div className="space-y-4 pb-28 animate-in fade-in duration-300">
-      {/* Header */}
-      <header className="pt-1">
-        <span className="text-[10px] font-black tracking-widest uppercase text-emerald-400 block">
-          MILESTONES & TROPHIES
-        </span>
-        <h1 className="text-2xl font-black text-white tracking-tight">
-          ACHIEVEMENTS
-        </h1>
-        <p className="text-[11px] text-zinc-400 mt-0.5">
-          Milestones unlocked by physical, mental, and personal discipline.
-        </p>
+    <div className="space-y-4 select-none">
+      {/* Top Header */}
+      <header className="flex items-center justify-between pt-1 pb-1">
+        <div>
+          <h1 className="text-2xl font-black text-[#0D1B2A] tracking-tight">
+            Achievements
+          </h1>
+          <p className="text-xs font-semibold text-[#68727D] mt-0.5">
+            Milestones unlocked through physical & mental discipline
+          </p>
+        </div>
       </header>
 
       {/* Overview Progress Card */}
-      <div className="bg-[#14171D] rounded-3xl p-4 border border-white/[0.08] shadow-sm flex items-center justify-between gap-4">
+      <div className="bg-white rounded-3xl p-5 border border-[#EEEDE9] shadow-xs flex items-center justify-between gap-4">
         <div>
-          <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest block mb-1">
+          <span className="text-[10px] font-black text-[#68727D] uppercase tracking-wider block mb-1">
             UNLOCKED MILESTONES
           </span>
           <div className="flex items-baseline gap-1.5">
-            <span className="text-3xl font-black text-white">
+            <span className="text-3xl font-black text-[#0D1B2A]">
               {unlockedCount}
             </span>
-            <span className="text-sm font-bold text-zinc-500">
+            <span className="text-sm font-bold text-[#68727D]">
               / {totalCount}
             </span>
           </div>
-          <span className="text-xs font-bold text-emerald-400 mt-1 block">
-            {progressPercent}% completed
+          <span className="text-xs font-black text-[#12324A] mt-1 block">
+            {progressPercent}% Completed
           </span>
         </div>
 
-        <div className="w-18 h-18 relative flex items-center justify-center">
-          <svg className="w-full h-full transform -rotate-90">
-            <circle
-              cx="36"
-              cy="36"
-              r="28"
-              stroke="#22272E"
-              strokeWidth="6"
-              fill="transparent"
+        <div className="w-16 h-16 relative flex items-center justify-center shrink-0">
+          <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+            <path
+              className="text-[#EEEDE9]"
+              strokeWidth="3.6"
+              stroke="currentColor"
+              fill="none"
+              d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
             />
-            <circle
-              cx="36"
-              cy="36"
-              r="28"
-              stroke="#22C55E"
-              strokeWidth="6"
-              strokeDasharray={2 * Math.PI * 28}
-              strokeDashoffset={2 * Math.PI * 28 - (progressPercent / 100) * (2 * Math.PI * 28)}
+            <path
+              className="text-[#4A90C2] transition-all duration-700 ease-out"
+              strokeDasharray={`${progressPercent}, 100`}
+              strokeWidth="3.6"
               strokeLinecap="round"
-              fill="transparent"
+              stroke="currentColor"
+              fill="none"
+              d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
             />
           </svg>
-          <Award className="w-6 h-6 text-emerald-400 absolute" />
+          <Award className="w-6 h-6 text-[#12324A] absolute" />
         </div>
       </div>
 
       {/* Filter Tabs */}
-      <div className="flex bg-zinc-900 border border-white/[0.08] p-1 rounded-xl">
+      <div className="flex bg-white border border-[#EEEDE9] p-1 rounded-2xl shadow-xs">
         {(['all', 'unlocked', 'locked'] as const).map((f) => (
           <button
             key={f}
             type="button"
             onClick={() => setFilter(f)}
-            className={`flex-1 py-1.5 text-xs font-bold capitalize rounded-lg transition-all cursor-pointer ${
+            className={`flex-1 py-2 text-xs font-bold capitalize rounded-xl transition-all cursor-pointer ${
               filter === f
-                ? 'bg-emerald-500 text-black font-black shadow-xs'
-                : 'text-zinc-400 hover:text-white'
+                ? 'bg-[#12324A] text-white font-black shadow-xs'
+                : 'text-[#68727D] hover:text-[#0D1B2A]'
             }`}
           >
             {f} {f === 'unlocked' ? `(${unlockedCount})` : f === 'locked' ? `(${totalCount - unlockedCount})` : `(${totalCount})`}
@@ -145,57 +142,53 @@ export const AchievementsScreen: React.FC = () => {
         {filteredAchievements.map((ach) => {
           const isUnlocked = !!ach.unlockedAt;
           const unlockDateFormatted = ach.unlockedAt
-            ? new Date(ach.unlockedAt).toLocaleDateString('en-US', {
-                month: 'short',
-                day: 'numeric',
-                year: 'numeric',
-              })
+            ? formatOrdinalDate(ach.unlockedAt.split('T')[0], { shortMonth: true })
             : null;
 
           return (
             <div
               key={ach.id}
-              className={`p-3.5 rounded-2xl border transition-all flex items-start justify-between gap-3 ${
+              className={`p-4 rounded-3xl border transition-all flex items-start justify-between gap-3 ${
                 isUnlocked
-                  ? 'bg-[#14171D] border-white/[0.09] shadow-xs hover:border-emerald-500/30'
-                  : 'bg-zinc-900/60 border-white/[0.04] opacity-55'
+                  ? 'bg-white border-[#EEEDE9] shadow-xs'
+                  : 'bg-[#F7F6F2] border-[#EEEDE9] opacity-65'
               }`}
             >
-              <div className="flex items-start gap-3">
+              <div className="flex items-start gap-3.5 min-w-0">
                 {/* Icon Container */}
                 <div
-                  className={`flex items-center justify-center w-10 h-10 rounded-xl shrink-0 mt-0.5 ${
+                  className={`flex items-center justify-center w-10 h-10 rounded-2xl shrink-0 mt-0.5 ${
                     isUnlocked
-                      ? 'bg-amber-500/15 text-amber-400 border border-amber-500/30 shadow-xs'
-                      : 'bg-zinc-800 text-zinc-500 border border-zinc-700/50'
+                      ? 'bg-[#DCEAF4] text-[#12324A] shadow-xs'
+                      : 'bg-[#EEEDE9] text-[#68727D]'
                   }`}
                 >
                   {getIcon(ach.icon, isUnlocked)}
                 </div>
 
-                <div>
+                <div className="min-w-0">
                   <div className="flex items-center gap-2">
                     <h3
-                      className={`text-sm font-black tracking-tight ${
-                        isUnlocked ? 'text-white' : 'text-zinc-400'
+                      className={`text-sm font-black tracking-tight truncate ${
+                        isUnlocked ? 'text-[#0D1B2A]' : 'text-[#68727D]'
                       }`}
                     >
                       {ach.title}
                     </h3>
                     {isUnlocked && (
-                      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 text-[9px] font-black uppercase">
+                      <span className="inline-flex items-center gap-0.5 px-2 py-0.2 rounded-md bg-[#DCEAF4] text-[#12324A] text-[9px] font-black uppercase shrink-0">
                         <Check className="w-2.5 h-2.5 stroke-[3]" />
                         <span>UNLOCKED</span>
                       </span>
                     )}
                   </div>
 
-                  <p className="text-xs text-zinc-400 mt-0.5 leading-relaxed">
+                  <p className="text-xs text-[#68727D] mt-0.5 font-medium leading-relaxed">
                     {ach.description}
                   </p>
 
                   {isUnlocked && unlockDateFormatted && (
-                    <span className="text-[10px] font-semibold text-zinc-500 mt-1 block">
+                    <span className="text-[10px] font-bold text-[#4A90C2] mt-1 block">
                       Unlocked {unlockDateFormatted}
                     </span>
                   )}
@@ -203,8 +196,8 @@ export const AchievementsScreen: React.FC = () => {
               </div>
 
               {!isUnlocked && (
-                <div className="shrink-0 pt-1 text-zinc-600" title="Locked">
-                  <Lock className="w-3.5 h-3.5" />
+                <div className="shrink-0 pt-1 text-[#68727D]" title="Locked">
+                  <Lock className="w-4 h-4" />
                 </div>
               )}
             </div>

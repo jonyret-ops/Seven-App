@@ -41,20 +41,20 @@ export const StepsCard: React.FC<StepsCardProps> = ({
   return (
     <div className={`p-4 rounded-2xl border transition-all ${
       earnedXp > 0
-        ? 'bg-[#121E18] border-emerald-500/30 shadow-sm'
-        : 'bg-[#14171D] border-white/[0.07] shadow-xs'
+        ? 'bg-[#F7F6F2] border-[#EEEDE9] shadow-xs'
+        : 'bg-white border-[#EEEDE9] shadow-xs'
     }`}>
       <div className="flex items-start justify-between gap-3 mb-2.5">
         <div className="flex items-center gap-2.5">
-          <div className="flex items-center justify-center w-8 h-8 rounded-xl bg-emerald-500/15 text-emerald-400 border border-emerald-500/20">
-            <Footprints className="w-4 h-4" />
+          <div className="flex items-center justify-center w-8 h-8 rounded-xl bg-[#DCEAF4] text-[#12324A]">
+            <Footprints className="w-4 h-4 stroke-[1.75]" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-[11px] font-bold text-zinc-500">#18</span>
-              <h3 className="text-[14px] font-bold text-white tracking-tight">Steps</h3>
+              <span className="text-[11px] font-bold text-[#68727D]">#18</span>
+              <h3 className="text-[14px] font-bold text-[#0D1B2A] tracking-tight">Steps</h3>
             </div>
-            <p className="text-[11px] text-zinc-400">10,000 step daily goal</p>
+            <p className="text-[11px] text-[#68727D]">10,000 step daily goal</p>
           </div>
         </div>
 
@@ -62,8 +62,8 @@ export const StepsCard: React.FC<StepsCardProps> = ({
           <span
             className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-black tracking-wide ${
               earnedXp > 0
-                ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                : 'bg-zinc-800 text-zinc-400'
+                ? 'bg-[#DCEAF4] text-[#12324A]'
+                : 'bg-[#F7F6F2] text-[#68727D]'
             }`}
           >
             <span>+{earnedXp}</span>
@@ -88,7 +88,7 @@ export const StepsCard: React.FC<StepsCardProps> = ({
                 (e.target as HTMLInputElement).blur();
               }
             }}
-            className="w-full h-10 px-3 bg-zinc-900 border border-zinc-700/80 rounded-xl text-sm font-bold text-white placeholder:text-zinc-500 focus:outline-none focus:ring-1 focus:ring-emerald-400 focus:border-emerald-400 transition-all"
+            className="w-full h-10 px-3 bg-white border border-[#EEEDE9] rounded-xl text-sm font-bold text-[#0D1B2A] placeholder:text-[#68727D]/60 focus:outline-none focus:ring-1 focus:ring-[#4A90C2] focus:border-[#4A90C2] transition-all"
           />
         </div>
 
@@ -97,14 +97,14 @@ export const StepsCard: React.FC<StepsCardProps> = ({
             <button
               type="button"
               onClick={() => handleQuickAdd(1000)}
-              className="h-10 px-2 rounded-xl bg-zinc-800 hover:bg-emerald-500/20 text-zinc-300 hover:text-emerald-300 text-xs font-bold transition-all border border-zinc-700/60 cursor-pointer"
+              className="h-10 px-2.5 rounded-xl bg-[#F7F6F2] hover:bg-[#EEEDE9] text-[#12324A] text-xs font-bold transition-all border border-[#EEEDE9] cursor-pointer"
             >
               +1k
             </button>
             <button
               type="button"
               onClick={() => handleQuickAdd(2500)}
-              className="h-10 px-2 rounded-xl bg-zinc-800 hover:bg-emerald-500/20 text-zinc-300 hover:text-emerald-300 text-xs font-bold transition-all border border-zinc-700/60 cursor-pointer"
+              className="h-10 px-2.5 rounded-xl bg-[#F7F6F2] hover:bg-[#EEEDE9] text-[#12324A] text-xs font-bold transition-all border border-[#EEEDE9] cursor-pointer"
             >
               +2.5k
             </button>
@@ -112,13 +112,13 @@ export const StepsCard: React.FC<StepsCardProps> = ({
         )}
       </div>
 
-      <div className="mt-3 pt-2 border-t border-zinc-800/80">
-        <div className="flex justify-between text-xs font-semibold text-zinc-400 mb-1.5">
+      <div className="mt-3 pt-2 border-t border-[#EEEDE9]">
+        <div className="flex justify-between text-xs font-semibold text-[#68727D] mb-1.5">
           <span>{currentSteps.toLocaleString()} / 10,000</span>
-          <span className="text-emerald-400 font-bold">{Math.min(100, Math.round((currentSteps / target) * 100))}%</span>
+          <span className="text-[#4A90C2] font-bold">{Math.min(100, Math.round((currentSteps / target) * 100))}%</span>
         </div>
-        <XpProgressBar current={currentSteps} total={target} heightClass="h-1.5" colorClass="bg-emerald-500" />
-        <div className="flex justify-between items-center text-[10px] text-zinc-500 mt-1.5">
+        <XpProgressBar current={currentSteps} total={target} heightClass="h-1.5" colorClass="bg-[#12324A]" />
+        <div className="flex justify-between items-center text-[10px] text-[#68727D] mt-1.5">
           <span>4k (+2) • 6k (+4) • 7.5k (+6)</span>
           <span>9k (+8) • 10k+ (+10 XP)</span>
         </div>
@@ -164,20 +164,20 @@ export const SleepCard: React.FC<SleepCardProps> = ({
   return (
     <div className={`p-4 rounded-2xl border transition-all ${
       earnedXp > 0
-        ? 'bg-[#121E18] border-emerald-500/30 shadow-sm'
-        : 'bg-[#14171D] border-white/[0.07] shadow-xs'
+        ? 'bg-[#F7F6F2] border-[#EEEDE9] shadow-xs'
+        : 'bg-white border-[#EEEDE9] shadow-xs'
     }`}>
       <div className="flex items-start justify-between gap-3 mb-2.5">
         <div className="flex items-center gap-2.5">
-          <div className="flex items-center justify-center w-8 h-8 rounded-xl bg-cyan-500/15 text-cyan-400 border border-cyan-500/20">
-            <Moon className="w-4 h-4" />
+          <div className="flex items-center justify-center w-8 h-8 rounded-xl bg-[#DCEAF4] text-[#12324A]">
+            <Moon className="w-4 h-4 stroke-[1.75]" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-[11px] font-bold text-zinc-500">#19</span>
-              <h3 className="text-[14px] font-bold text-white tracking-tight">Sleep</h3>
+              <span className="text-[11px] font-bold text-[#68727D]">#19</span>
+              <h3 className="text-[14px] font-bold text-[#0D1B2A] tracking-tight">Sleep</h3>
             </div>
-            <p className="text-[11px] text-zinc-400">Actual hours slept</p>
+            <p className="text-[11px] text-[#68727D]">Actual hours slept</p>
           </div>
         </div>
 
@@ -185,8 +185,8 @@ export const SleepCard: React.FC<SleepCardProps> = ({
           <span
             className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-black tracking-wide ${
               earnedXp > 0
-                ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                : 'bg-zinc-800 text-zinc-400'
+                ? 'bg-[#DCEAF4] text-[#12324A]'
+                : 'bg-[#F7F6F2] text-[#68727D]'
             }`}
           >
             <span>+{earnedXp}</span>
@@ -210,7 +210,7 @@ export const SleepCard: React.FC<SleepCardProps> = ({
                 (e.target as HTMLInputElement).blur();
               }
             }}
-            className="w-full h-10 px-3 bg-zinc-900 border border-zinc-700/80 rounded-xl text-sm font-bold text-white placeholder:text-zinc-500 focus:outline-none focus:ring-1 focus:ring-emerald-400 focus:border-emerald-400 transition-all"
+            className="w-full h-10 px-3 bg-white border border-[#EEEDE9] rounded-xl text-sm font-bold text-[#0D1B2A] placeholder:text-[#68727D]/60 focus:outline-none focus:ring-1 focus:ring-[#4A90C2] focus:border-[#4A90C2] transition-all"
           />
         </div>
 
@@ -223,8 +223,8 @@ export const SleepCard: React.FC<SleepCardProps> = ({
                 onClick={() => handleQuickPreset(preset)}
                 className={`h-10 px-2.5 rounded-xl text-xs font-bold transition-all border cursor-pointer ${
                   currentHours === preset
-                    ? 'bg-emerald-500 border-emerald-400 text-black font-extrabold shadow-[0_0_8px_rgba(52,211,153,0.3)]'
-                    : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border-zinc-700/60'
+                    ? 'bg-[#12324A] border-[#12324A] text-white font-extrabold shadow-xs'
+                    : 'bg-[#F7F6F2] hover:bg-[#EEEDE9] text-[#12324A] border-[#EEEDE9]'
                 }`}
               >
                 {preset}h
@@ -234,13 +234,13 @@ export const SleepCard: React.FC<SleepCardProps> = ({
         )}
       </div>
 
-      <div className="mt-3 pt-2 border-t border-zinc-800/80">
-        <div className="flex justify-between text-xs font-semibold text-zinc-400 mb-1.5">
+      <div className="mt-3 pt-2 border-t border-[#EEEDE9]">
+        <div className="flex justify-between text-xs font-semibold text-[#68727D] mb-1.5">
           <span>{currentHours} / 8.0 hours</span>
-          <span className="text-emerald-400 font-bold">{Math.min(100, Math.round((currentHours / target) * 100))}%</span>
+          <span className="text-[#4A90C2] font-bold">{Math.min(100, Math.round((currentHours / target) * 100))}%</span>
         </div>
-        <XpProgressBar current={currentHours} total={target} heightClass="h-1.5" colorClass="bg-cyan-400" />
-        <div className="flex justify-between items-center text-[10px] text-zinc-500 mt-1.5">
+        <XpProgressBar current={currentHours} total={target} heightClass="h-1.5" colorClass="bg-[#12324A]" />
+        <div className="flex justify-between items-center text-[10px] text-[#68727D] mt-1.5">
           <span>&lt;5 (0) • 5h (+2) • 6h (+4)</span>
           <span>7h (+7) • 8h+ (+10 XP)</span>
         </div>

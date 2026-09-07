@@ -1,86 +1,121 @@
-import React from 'react';
-import { ChevronLeft, ChevronRight, RotateCcw } from 'lucide-react';
+import React, { useMemo } from 'react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import { addDays, parseDate, getDaysDifference } from '../lib/calculations';
+import { addDays, getDaysDifference, formatOrdinalDate } from '../lib/calculations';
 
-export const DateNavigator: React.FC = () => {
-  const { selectedDate, setSelectedDate, activeTodayDate, isDateFuture, currentArc } = useApp();
+interface DateNavigatorProps {
+  date?: string;
+  onDateChange?: (newDate: string) => void;
+  maxFutureDays?: number;
+}
+
+export const DateNavigator: React.FC<DateNavigatorProps> = ({
+  date,
+  onDateChange,
+  maxFutureDays = 30,
+}) => {
+  const {
+    selectedDate: appSelectedDate,
+    setSelectedDate: setAppSelectedDate,
+    activeTodayDate,
+    currentArc,
+    isDateFuture,
+  } = useApp();
+
+  const activeDate = date ?? appSelectedDate;
+  const setActiveDate = onDateChange ?? setAppSelectedDate;
+
+  const isViewingToday = activeDate === activeTodayDate;
+  const isViewingYesterday = activeDate === addDays(activeTodayDate, -1);
+  const isTomorrow = activeDate === addDays(activeTodayDate, 1);
+  const isFuture = isDateFuture(activeDate);
+
+  // Allow forward navigation into future (up to maxFutureDays)
+  const maxFutureDate = addDays(activeTodayDate, maxFutureDays);
+  const canGoForward = activeDate < maxFutureDate;
 
   const handlePrevDay = () => {
-    setSelectedDate(addDays(selectedDate, -1));
+    setActiveDate(addDays(activeDate, -1));
   };
 
   const handleNextDay = () => {
-    setSelectedDate(addDays(selectedDate, 1));
+    if (canGoForward) {
+      setActiveDate(addDays(activeDate, 1));
+    }
   };
 
-  const handleJumpToToday = () => {
-    setSelectedDate(activeTodayDate);
-  };
+  // Day number relative to current Arc start
+  const arcDayNumber = useMemo(() => {
+    if (!currentArc?.startDate) return 1;
+    const diff = getDaysDifference(currentArc.startDate, activeDate) + 1;
+    return Math.max(1, diff);
+  }, [currentArc?.startDate, activeDate]);
 
-  const dateObj = parseDate(selectedDate);
-  const formattedDayOfWeek = dateObj.toLocaleDateString('en-US', { weekday: 'short' });
-  const formattedMonthDay = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  const isToday = selectedDate === activeTodayDate;
-  const isFuture = isDateFuture(selectedDate);
-
-  const arcDayDiff = getDaysDifference(currentArc.startDate, selectedDate);
-  const arcDayLabel = arcDayDiff >= 0 ? `Day ${arcDayDiff + 1}` : 'Pre-Arc';
+  // Formatted date string with ordinal suffix (e.g. "Mon, Sep 7th")
+  const formattedDate = useMemo(() => {
+    return formatOrdinalDate(activeDate, { includeWeekday: true, shortMonth: true, omitYear: true });
+  }, [activeDate]);
 
   return (
-    <div className="bg-[#14171D] rounded-2xl p-3 border border-white/[0.08] shadow-sm flex items-center justify-between gap-2">
+    <section className="bg-white rounded-3xl p-3 border border-[#EEEDE9] shadow-xs flex items-center justify-between select-none">
       <button
         type="button"
         onClick={handlePrevDay}
-        className="w-9 h-9 rounded-xl flex items-center justify-center text-zinc-400 hover:text-white hover:bg-zinc-800 active:scale-95 transition-all cursor-pointer"
         aria-label="Previous day"
+        className="w-10 h-10 rounded-2xl flex items-center justify-center text-[#12324A] hover:bg-[#F2F1ED] transition-colors cursor-pointer"
       >
-        <ChevronLeft className="w-5 h-5" />
+        <ChevronLeft className="w-5 h-5 stroke-[1.75]" />
       </button>
 
       <div className="flex flex-col items-center text-center">
-        <div className="flex items-center gap-1.5">
-          <span className="text-[11px] font-extrabold tracking-wider uppercase text-emerald-400">
-            {arcDayLabel}
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] font-black text-[#68727D] tracking-wider uppercase">
+            DAY {arcDayNumber}
           </span>
-          {isToday && (
-            <span className="px-1.5 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold">
+
+          {isViewingToday && (
+            <span className="px-2 py-0.2 rounded-full bg-[#DCEAF4] text-[#12324A] text-[10px] font-black tracking-wider uppercase">
               TODAY
             </span>
           )}
-          {isFuture && (
-            <span className="px-1.5 py-0.5 rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[10px] font-bold">
-              LOCKED
+
+          {isViewingYesterday && (
+            <span className="px-2 py-0.2 rounded-full bg-[#EEEDE9] text-[#68727D] text-[10px] font-black tracking-wider uppercase">
+              YESTERDAY
+            </span>
+          )}
+
+          {isTomorrow && (
+            <span className="px-2 py-0.2 rounded-full bg-[#DCEAF4] text-[#12324A] text-[10px] font-black tracking-wider uppercase">
+              TOMORROW
+            </span>
+          )}
+
+          {isFuture && !isTomorrow && (
+            <span className="px-2 py-0.2 rounded-full bg-[#EEEDE9] text-[#68727D] text-[10px] font-black tracking-wider uppercase">
+              PREVIEW
             </span>
           )}
         </div>
 
-        <span className="text-sm font-extrabold text-white tracking-tight">
-          {formattedDayOfWeek}, {formattedMonthDay}
+        <span className="text-sm font-black text-[#0D1B2A] mt-0.5">
+          {formattedDate}
         </span>
       </div>
 
-      <div className="flex items-center gap-1">
-        {!isToday && (
-          <button
-            type="button"
-            onClick={handleJumpToToday}
-            className="h-8 px-2 rounded-xl flex items-center gap-1 text-[11px] font-bold text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 transition-all cursor-pointer"
-            title="Jump to Today"
-          >
-            <RotateCcw className="w-3 h-3" />
-            <span>Today</span>
-          </button>
-        )}
-        <button
-          type="button"
-          onClick={handleNextDay}
-          className="w-9 h-9 rounded-xl flex items-center justify-center text-zinc-400 hover:text-white hover:bg-zinc-800 active:scale-95 transition-all cursor-pointer"
-          aria-label="Next day"
-        >
-          <ChevronRight className="w-5 h-5" />
-        </button>
-      </div>
-    </div>
+      <button
+        type="button"
+        onClick={handleNextDay}
+        disabled={!canGoForward}
+        aria-label="Next day"
+        className={`w-10 h-10 rounded-2xl flex items-center justify-center transition-colors ${
+          canGoForward
+            ? 'text-[#12324A] hover:bg-[#F2F1ED] cursor-pointer'
+            : 'text-[#EEEDE9] cursor-not-allowed opacity-40'
+        }`}
+      >
+        <ChevronRight className="w-5 h-5 stroke-[1.75]" />
+      </button>
+    </section>
   );
 };

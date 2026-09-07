@@ -12,9 +12,15 @@ import {
   DailyLog, 
   PersonalRecord, 
   UserProfile, 
-  WeightEntry 
+  WeightEntry,
+  BodyMeasurementEntry,
+  MealLog,
+  NutritionSettings,
+  WeeklyGoalInstance,
+  DailyFocusIntention
 } from '../types';
 import { db } from './db';
+import { DEFAULT_NUTRITION_SETTINGS } from '../constants';
 
 export interface StorageRepository {
   getProfile(): Promise<UserProfile>;
@@ -34,6 +40,24 @@ export interface StorageRepository {
   saveWeightEntry(entry: WeightEntry): Promise<void>;
   deleteWeightEntry(id: string): Promise<void>;
   
+  getBodyMeasurements(): Promise<BodyMeasurementEntry[]>;
+  saveBodyMeasurement(entry: BodyMeasurementEntry): Promise<void>;
+  deleteBodyMeasurement(id: string): Promise<void>;
+
+  getAllMealLogs(): Promise<MealLog[]>;
+  getMealLogs(date?: string): Promise<MealLog[]>;
+  saveMealLog(log: MealLog): Promise<void>;
+  deleteMealLog(id: string): Promise<void>;
+
+  getNutritionSettings(): Promise<NutritionSettings>;
+  saveNutritionSettings(settings: NutritionSettings): Promise<void>;
+
+  getWeeklyGoals(): Promise<WeeklyGoalInstance[]>;
+  saveWeeklyGoal(goal: WeeklyGoalInstance): Promise<void>;
+
+  getDailyFocusIntentions(date: string): Promise<DailyFocusIntention[]>;
+  saveDailyFocusIntention(intention: DailyFocusIntention): Promise<void>;
+
   getAchievements(): Promise<Achievement[]>;
   saveAchievements(achievements: Achievement[]): Promise<void>;
 
@@ -53,6 +77,10 @@ const STORAGE_KEYS = {
   ARC_RECAPS: 'seven_arc_recaps_v2',
   DAILY_LOGS: 'seven_daily_logs_v2',
   WEIGHT_ENTRIES: 'seven_weight_entries_v2',
+  BODY_MEASUREMENTS: 'seven_body_measurements_v2',
+  MEAL_LOGS: 'seven_meal_logs_v2',
+  NUTRITION_SETTINGS: 'seven_nutrition_settings_v2',
+  WEEKLY_GOALS: 'seven_weekly_goals_v2',
   ACHIEVEMENTS: 'seven_achievements_v2',
   PERSONAL_RECORDS: 'seven_personal_records_v2',
 };
@@ -246,6 +274,168 @@ export class OfflineDexieRepository implements StorageRepository {
     }
   }
 
+  // Body Measurements (Part XXXVI - XXXVII)
+  async getBodyMeasurements(): Promise<BodyMeasurementEntry[]> {
+    try {
+      const stored = await db.bodyMeasurements.orderBy('date').toArray();
+      if (stored.length > 0) return stored;
+      const local = localStorage.getItem(STORAGE_KEYS.BODY_MEASUREMENTS);
+      if (local) {
+        const parsed: BodyMeasurementEntry[] = JSON.parse(local);
+        await db.bodyMeasurements.bulkPut(parsed);
+        return parsed;
+      }
+      return [];
+    } catch {
+      try {
+        const local = localStorage.getItem(STORAGE_KEYS.BODY_MEASUREMENTS);
+        return local ? JSON.parse(local) : [];
+      } catch {
+        return [];
+      }
+    }
+  }
+
+  async saveBodyMeasurement(entry: BodyMeasurementEntry): Promise<void> {
+    try {
+      await db.bodyMeasurements.put(entry);
+      const entries = await db.bodyMeasurements.orderBy('date').toArray();
+      localStorage.setItem(STORAGE_KEYS.BODY_MEASUREMENTS, JSON.stringify(entries));
+    } catch (e) {
+      console.warn('Storage saveBodyMeasurement warning:', e);
+    }
+  }
+
+  async deleteBodyMeasurement(id: string): Promise<void> {
+    try {
+      await db.bodyMeasurements.delete(id);
+      const entries = await db.bodyMeasurements.orderBy('date').toArray();
+      localStorage.setItem(STORAGE_KEYS.BODY_MEASUREMENTS, JSON.stringify(entries));
+    } catch (e) {
+      console.warn('Storage deleteBodyMeasurement warning:', e);
+    }
+  }
+
+  // Meal Logs (Part XLI - XLV)
+  async getAllMealLogs(): Promise<MealLog[]> {
+    try {
+      const stored = await db.mealLogs.orderBy('date').toArray();
+      if (stored.length > 0) return stored;
+      const local = localStorage.getItem(STORAGE_KEYS.MEAL_LOGS);
+      if (local) {
+        const parsed: MealLog[] = JSON.parse(local);
+        await db.mealLogs.bulkPut(parsed);
+        return parsed;
+      }
+      return [];
+    } catch {
+      try {
+        const local = localStorage.getItem(STORAGE_KEYS.MEAL_LOGS);
+        return local ? JSON.parse(local) : [];
+      } catch {
+        return [];
+      }
+    }
+  }
+
+  async getMealLogs(date?: string): Promise<MealLog[]> {
+    const all = await this.getAllMealLogs();
+    if (!date) return all;
+    return all.filter(m => m.date === date);
+  }
+
+  async saveMealLog(log: MealLog): Promise<void> {
+    try {
+      await db.mealLogs.put(log);
+      const all = await db.mealLogs.orderBy('date').toArray();
+      localStorage.setItem(STORAGE_KEYS.MEAL_LOGS, JSON.stringify(all));
+    } catch (e) {
+      console.warn('Storage saveMealLog warning:', e);
+    }
+  }
+
+  async deleteMealLog(id: string): Promise<void> {
+    try {
+      await db.mealLogs.delete(id);
+      const all = await db.mealLogs.orderBy('date').toArray();
+      localStorage.setItem(STORAGE_KEYS.MEAL_LOGS, JSON.stringify(all));
+    } catch (e) {
+      console.warn('Storage deleteMealLog warning:', e);
+    }
+  }
+
+  // Nutrition Settings
+  async getNutritionSettings(): Promise<NutritionSettings> {
+    try {
+      const stored = await db.nutritionSettings.get('current');
+      if (stored) return stored;
+      const local = localStorage.getItem(STORAGE_KEYS.NUTRITION_SETTINGS);
+      if (local) {
+        const parsed: NutritionSettings = JSON.parse(local);
+        await db.nutritionSettings.put(parsed);
+        return parsed;
+      }
+      return DEFAULT_NUTRITION_SETTINGS;
+    } catch {
+      return DEFAULT_NUTRITION_SETTINGS;
+    }
+  }
+
+  async saveNutritionSettings(settings: NutritionSettings): Promise<void> {
+    try {
+      await db.nutritionSettings.put(settings);
+      localStorage.setItem(STORAGE_KEYS.NUTRITION_SETTINGS, JSON.stringify(settings));
+    } catch (e) {
+      console.warn('Storage saveNutritionSettings warning:', e);
+    }
+  }
+
+  // Weekly Goals (Part XXV - XXVIII)
+  async getWeeklyGoals(): Promise<WeeklyGoalInstance[]> {
+    try {
+      const stored = await db.weeklyGoals.orderBy('startDate').toArray();
+      if (stored.length > 0) return stored;
+      const local = localStorage.getItem(STORAGE_KEYS.WEEKLY_GOALS);
+      if (local) {
+        const parsed: WeeklyGoalInstance[] = JSON.parse(local);
+        await db.weeklyGoals.bulkPut(parsed);
+        return parsed;
+      }
+      return [];
+    } catch {
+      return [];
+    }
+  }
+
+  async saveWeeklyGoal(goal: WeeklyGoalInstance): Promise<void> {
+    try {
+      await db.weeklyGoals.put(goal);
+      const all = await db.weeklyGoals.toArray();
+      localStorage.setItem(STORAGE_KEYS.WEEKLY_GOALS, JSON.stringify(all));
+    } catch (e) {
+      console.warn('Storage saveWeeklyGoal warning:', e);
+    }
+  }
+
+  // Daily Focus Intentions
+  async getDailyFocusIntentions(date: string): Promise<DailyFocusIntention[]> {
+    try {
+      const stored = await db.dailyFocusIntentions.where('date').equals(date).toArray();
+      if (stored.length > 0) return stored.sort((a, b) => a.order - b.order);
+      return [];
+    } catch {
+      return [];
+    }
+  }
+
+  async saveDailyFocusIntention(intention: DailyFocusIntention): Promise<void> {
+    try {
+      await db.dailyFocusIntentions.put(intention);
+    } catch (e) {
+      console.warn('Storage saveDailyFocusIntention warning:', e);
+    }
+  }
+
   async getAchievements(): Promise<Achievement[]> {
     try {
       const stored = await db.achievements.toArray();
@@ -314,6 +504,11 @@ export class OfflineDexieRepository implements StorageRepository {
         db.arcRecaps.clear(),
         db.dailyLogs.clear(),
         db.weightEntries.clear(),
+        db.bodyMeasurements.clear(),
+        db.mealLogs.clear(),
+        db.nutritionSettings.clear(),
+        db.weeklyGoals.clear(),
+        db.dailyFocusIntentions.clear(),
         db.achievements.clear(),
         db.personalRecords.clear(),
       ]);
@@ -326,6 +521,10 @@ export class OfflineDexieRepository implements StorageRepository {
     localStorage.removeItem(STORAGE_KEYS.ARC_RECAPS);
     localStorage.removeItem(STORAGE_KEYS.DAILY_LOGS);
     localStorage.removeItem(STORAGE_KEYS.WEIGHT_ENTRIES);
+    localStorage.removeItem(STORAGE_KEYS.BODY_MEASUREMENTS);
+    localStorage.removeItem(STORAGE_KEYS.MEAL_LOGS);
+    localStorage.removeItem(STORAGE_KEYS.NUTRITION_SETTINGS);
+    localStorage.removeItem(STORAGE_KEYS.WEEKLY_GOALS);
     localStorage.removeItem(STORAGE_KEYS.ACHIEVEMENTS);
     localStorage.removeItem(STORAGE_KEYS.PERSONAL_RECORDS);
     localStorage.removeItem('seven_onboarding_completed');
@@ -337,11 +536,15 @@ export class OfflineDexieRepository implements StorageRepository {
     const arcRecaps = await this.getArcRecaps();
     const dailyLogs = await this.getAllDailyLogs();
     const weightEntries = await this.getWeightEntries();
+    const bodyMeasurements = await this.getBodyMeasurements();
+    const mealLogs = await this.getAllMealLogs();
+    const nutritionSettings = await this.getNutritionSettings();
+    const weeklyGoals = await this.getWeeklyGoals();
     const achievements = await this.getAchievements();
     const personalRecords = await this.getPersonalRecords();
 
     return JSON.stringify({
-      schemaVersion: 3,
+      schemaVersion: 4,
       appName: 'SEVEN',
       tagline: 'Each day is a step towards greatness.',
       exportedAt: new Date().toISOString(),
@@ -350,6 +553,10 @@ export class OfflineDexieRepository implements StorageRepository {
       arcRecaps,
       dailyLogs,
       weightEntries,
+      bodyMeasurements,
+      mealLogs,
+      nutritionSettings,
+      weeklyGoals,
       achievements,
       personalRecords,
     }, null, 2);
@@ -399,6 +606,24 @@ export class OfflineDexieRepository implements StorageRepository {
         await db.weightEntries.clear();
         await db.weightEntries.bulkPut(parsed.weightEntries);
         localStorage.setItem(STORAGE_KEYS.WEIGHT_ENTRIES, JSON.stringify(parsed.weightEntries));
+      }
+      if (Array.isArray(parsed.bodyMeasurements)) {
+        await db.bodyMeasurements.clear();
+        await db.bodyMeasurements.bulkPut(parsed.bodyMeasurements);
+        localStorage.setItem(STORAGE_KEYS.BODY_MEASUREMENTS, JSON.stringify(parsed.bodyMeasurements));
+      }
+      if (Array.isArray(parsed.mealLogs)) {
+        await db.mealLogs.clear();
+        await db.mealLogs.bulkPut(parsed.mealLogs);
+        localStorage.setItem(STORAGE_KEYS.MEAL_LOGS, JSON.stringify(parsed.mealLogs));
+      }
+      if (parsed.nutritionSettings) {
+        await this.saveNutritionSettings(parsed.nutritionSettings);
+      }
+      if (Array.isArray(parsed.weeklyGoals)) {
+        await db.weeklyGoals.clear();
+        await db.weeklyGoals.bulkPut(parsed.weeklyGoals);
+        localStorage.setItem(STORAGE_KEYS.WEEKLY_GOALS, JSON.stringify(parsed.weeklyGoals));
       }
       if (Array.isArray(parsed.achievements)) {
         await this.saveAchievements(parsed.achievements);

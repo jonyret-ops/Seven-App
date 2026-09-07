@@ -50,13 +50,14 @@ function generatePng(width, height, isMaskable = false) {
       const dy = y - cy;
       const dist = Math.sqrt(dx * dx + dy * dy);
 
-      // Default background: #0B0E11 with slight gradient towards top
-      let r = 11 + Math.floor((1 - y / height) * 9);
-      let g = 14 + Math.floor((1 - y / height) * 9);
-      let b = 17 + Math.floor((1 - y / height) * 12);
+      // Background: Deep dark navy-slate gradient #1E2533 (top) to #0A0D14 (bottom)
+      const gy = y / height;
+      let r = Math.floor(30 * (1 - gy) + 10 * gy);
+      let g = Math.floor(37 * (1 - gy) + 13 * gy);
+      let b = Math.floor(51 * (1 - gy) + 20 * gy);
       let a = 255;
 
-      // If not maskable, rounded corners
+      // If not maskable, rounded squircle corners
       if (!isMaskable) {
         const cornerR = width * 0.22;
         const inCornerX = x < cornerR ? cornerR - x : (x > width - cornerR ? x - (width - cornerR) : 0);
@@ -74,23 +75,23 @@ function generatePng(width, height, isMaskable = false) {
         }
       }
 
-      // Background track circle
+      // Background track circle (#1F2937)
       if (Math.abs(dist - trackRadius) < trackWidth / 2) {
-        r = 39; g = 39; b = 42;
+        r = 31; g = 41; b = 55;
       }
 
-      // Emerald progress arc from -90 deg (top) to around 170 deg clockwise
+      // Electric Blue progress arc from -90 deg (top) to around 170 deg clockwise
       const angle = Math.atan2(dy, dx); // -PI to PI (-PI/2 is top)
       let normAngle = angle + Math.PI / 2;
       if (normAngle < 0) normAngle += Math.PI * 2;
 
       // Arc spans ~70% (0 to 4.4 rad)
       if (normAngle < 4.4 && Math.abs(dist - trackRadius) < trackWidth * 0.6) {
-        // Emerald gradient #34D399 (52, 211, 153) to #10B981 (16, 185, 129)
+        // Electric blue gradient #38BDF8 (56, 189, 248) to #2563EB (37, 99, 235)
         const t = normAngle / 4.4;
-        r = Math.floor(52 * (1 - t) + 16 * t);
-        g = Math.floor(211 * (1 - t) + 185 * t);
-        b = Math.floor(153 * (1 - t) + 129 * t);
+        r = Math.floor(56 * (1 - t) + 37 * t);
+        g = Math.floor(189 * (1 - t) + 99 * t);
+        b = Math.floor(248 * (1 - t) + 235 * t);
       }
 
       // Glowing dot near top-right (angle 0 rad relative to center: x = cx + trackRadius, y = cy)
@@ -98,7 +99,7 @@ function generatePng(width, height, isMaskable = false) {
       const dotDy = y - cy;
       const dotDist = Math.sqrt(dotDx * dotDx + dotDy * dotDy);
       if (dotDist < trackWidth * 0.7) {
-        r = 52; g = 211; b = 153;
+        r = 56; g = 189; b = 248;
       }
 
       // Center numeral 7
